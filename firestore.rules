@@ -1,0 +1,71 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email != null;
+    }
+    function userEmail() {
+      return request.auth.token.email;
+    }
+    function userRole() {
+      return isSignedIn() ? get(/databases/$(database)/documents/usuarios/$(userEmail())).data.papel : null;
+    }
+    function isAdmin() {
+      return userRole() == 'admin';
+    }
+    function isLider() {
+      return userRole() == 'lider';
+    }
+    function isViewer() {
+      return userRole() == 'viewer';
+    }
+
+    // Leitura padrão: qualquer usuário autenticado pode ler dados públicos do app
+    match /{document=**} {
+      allow read: if isSignedIn();
+    }
+
+    // Usuários (apenas admin pode criar/alterar papéis)
+    match /usuarios/{email} {
+      allow read: if isSignedIn() && (userEmail() == email || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Tribos e Semanas (somente admin gerencia)
+    match /tribos/{id} {
+      allow create, update, delete: if isAdmin();
+    }
+    match /semanas/{id} {
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Pontos semanais (admin e líder podem lançar/editar)
+    match /pontos_semanais/{id} {
+      allow create, update, delete: if isAdmin() || isLider();
+    }
+
+    // Presenças semanais (admin e líder)
+    match /presencas_semanais/{id} {
+      allow create, update, delete: if isAdmin() || isLider();
+    }
+
+    // Faltas agregado (mantido por Cloud Functions – somente admin/líder por via das dúvidas)
+    match /faltas_agregado/{id} {
+      allow create, update, delete: if isAdmin() || isLider();
+    }
+
+    // Logs (qualquer autenticado pode criar log; leitura só admin)
+    match /logs_admin/{id} {
+      allow create: if isSignedIn();
+      allow read: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // Agregados de ranking (somente leitura; escrita pelo servidor)
+    match /ranking_total/{id} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin(); // ou restrinja via AppCheck/Functions
+    }
+  }
+}

@@ -1,0 +1,2047 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>RALLY FJU</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&amp;family=Poppins:wght@400;700&amp;display=swap" rel="stylesheet"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --cor-principal: #00539f; --cor-secundaria: #003a70; --cor-destaque: #d52b1e;
+            --cor-ouro: #ffd700; --cor-prata: #c0c0c0; --cor-bronze: #cd7f32;
+        }
+        .bg-principal { background-color: var(--cor-principal); } .text-principal { color: var(--cor-principal); }
+        .border-principal { border-color: var(--cor-principal); } .bg-secundaria { background-color: var(--cor-secundaria); }
+        .text-secundaria { color: var(--cor-secundaria); } .bg-destaque { background-color: var(--cor-destaque); } 
+        .text-destaque { color: var(--cor-destaque); }
+        .focus\:ring-principal:focus { --tw-ring-color: var(--cor-principal); }
+        .text-principal { color: var(--cor-principal); }
+
+
+        .font-montserrat { font-family: 'Montserrat', sans-serif; } .font-poppins { font-family: 'Poppins', sans-serif; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .animate-fadeIn { animation: fadeIn 0.5s ease-out forwards; }
+        .animate-fadeInUp { animation: fadeInUp 0.6s ease-out forwards; }
+        
+        .podium-1 { order: 2; transform: translateY(-20px); z-index: 10; } 
+        .podium-2 { order: 1; } 
+        .podium-3 { order: 3; }
+
+        .transition-all { transition: all 0.3s ease-in-out; }
+
+        @keyframes text-glow {
+            0%, 100% { text-shadow: 0 0 5px rgba(255, 255, 255, 0.4), 0 0 10px rgba(255, 255, 255, 0.3); }
+            50% { text-shadow: 0 0 15px rgba(255, 255, 255, 0.7), 0 0 25px rgba(255, 255, 255, 0.5); }
+        }
+        .text-glow { animation: text-glow 4s ease-in-out infinite; }
+
+        .tribo-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .tribo-card:hover { transform: translateY(-8px) scale(1.03); box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15); }
+        
+        .profile-photo-container {
+            cursor: pointer;
+            position: relative;
+        }
+        .profile-photo-overlay {
+            position: absolute;
+            inset: 0;
+            background-color: rgba(0,0,0,0.5);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+            border-radius: 50%;
+        }
+        .profile-photo-container:hover .profile-photo-overlay {
+            opacity: 1;
+        }
+    </style>
+    <link href="manifest.json" rel="manifest"/>
+    <meta content="#00539f" name="theme-color"/>
+</head>
+<body class="bg-gray-100 font-poppins text-gray-800">
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, getDocs, addDoc, deleteDoc, writeBatch, where, orderBy, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyDbxquOWGuXqOSYTM7k3O_UIsSeKZKpi0E",
+          authDomain: "rally-dos-300-fju.firebaseapp.com",
+          projectId: "rally-dos-300-fju",
+          storageBucket: "rally-dos-300-fju.appspot.com",
+          messagingSenderId: "892464139915",
+          appId: "1:892464139915:web:5ff0ea7b2b9324d44b8e8e"
+        };
+        let app, db, auth, storage;
+        let isAdmin = false;
+        let rallyConfig = {};
+        
+        const MISSOES_PADRAO = {
+            1: `🛡️ SEMANA 1 (31 de Agosto a 06 de Setembro) 🛡️\n`+
+               `TEMA: O CHAMADO DOS VALENTES\n`+
+               `O início da batalha! É hora de mostrar a que viemos e começar com força total!\n`+
+               `📅 MISSÕES SEMANAIS ⚔️\n\n`+
+               `50: SEGUNDA (31/08) 🅰️➕ ALGO A MAIS: por jovem presente na reunião.\n`+
+               `100: TERÇA (01/09) 🦶🏘️ PÉ NO BAIRRO (Evangelismo): por trabalho realizado (mínimo 3 jovens).\n`+
+               `30: QUARTA (02/09) 📖 SALVAÇÃO DA ALMA: por jovem nas reuniões (7h, 10h, 12h, 15h, 19h30).\n`+
+               `50: BÔNUS QUARTA: para quem for à reunião das 18h.\n`+
+               `50: QUINTA (03/09) ❤️‍🔥 TERAPIA DO AMOR: por jovem presente às 19h.\n`+
+               `20: SÁBADO (05/09) 📻 CONEXÃO JOVEM: por jovem conectado na rádio (11h30).\n`+
+               `100: SÁBADO (05/09) 🎯 ENCONTRO JOVEM (EJ): por jovem novo (que nunca foi ao EJ).\n`+
+               `60: SÁBADO (05/09) 🎯 ENCONTRO JOVEM (EJ): por jovem afastado que retornar.\n`+
+               `150: DOMINGO (06/09) ⛪ CONCENTRAÇÃO DE FÉ: MISSÃO PRINCIPAL por jovem presente às 9h30!\n`+
+               `75: DOMINGO (06/09) ⛪ CONCENTRAÇÃO DE FÉ: por jovem presente às 7h.\n\n`+
+               `🔥 MISSÕES ESPECIAIS (BÔNUS ALTO!)\n\n`+
+               `300: PONTO DE ORAÇÃO: Por tribo que organizar um momento de oração durante a semana.\n`+
+               `1000: EVANGELIZAÇÃO CRIATIVA: Para a tribo que fizer uma ação evangelística inovadora.\n`+
+               `2000: DESAFIO DOS VALENTES: Montar um time de futebol (mínimo 5 jogadores) e trazer no Encontro Jovem.\n`+
+               `700: DOAÇÃO: Doar 1 resma de papel A4.\n`+
+               `1000: MELHOR FOTO: A melhor foto da tribo (dentro ou fora da igreja).\n`+
+               `300: MANUTENÇÃO DO TEMPLO: Por jovem que ajudar na limpeza no Sábado (8h30).\n`+
+               `10000: META DA 1ª SEMANA: TRAZER 5 JOVENS NOVOS.`,
+            2: `🛡️ SEMANA 2 (01 a 07 de Setembro) 🛡️\n` +
+               `TEMA: A FORÇA DA UNIÃO\n` +
+               `Uma tribo unida é imbatível! O foco é o trabalho em equipe e o cuidado uns com os outros.\n` +
+               `📅 MISSÕES SEMANAIS ⚔️\n\n` +
+               `60: SEGUNDA (01/09) 🅰️➕ ALGO A MAIS: por jovem presente.\n` +
+               `100: BÔNUS SEGUNDA: para a tribo que levar um lanche para compartilhar.\n` +
+               `120: TERÇA (02/09) 🦶🏘️ PÉ NO BAIRRO: por trabalho de evangelismo.\n` +
+               `40: QUARTA (03/09) 📖 SALVAÇÃO DA ALMA: por jovem em qualquer reunião.\n` +
+               `50: BÔNUS QUARTA: por jovem que trouxer um amigo convidado para o culto das 18h!\n` +
+               `60: QUINTA (04/09) ❤️‍🔥 TERAPIA DO AMOR: por jovem presente às 19h.\n` +
+               `30: SÁBADO (06/09) 📻 CONEXÃO JOVEM: por jovem conectado (11h30).\n` +
+               `160: DOMINGO (07/09) 🎯 GRANDE ENCONTRO JOVEM (EJ): MISSÃO PRINCIPAL por jovem na Concentração de Fé às 9h30!\n` +
+               `120: DOMINGO (07/09) 🎯 por jovem novo.\n` +
+               `80: DOMINGO (07/09) 🎯 por jovem presente às 7h.\n` +
+               `70: DOMINGO (07/09) 🎯 por jovem afastado que retornar.\n\n` +
+               `🔥 MISSÕES ESPECIAIS (BÔNUS ALTO!)\n\n` +
+               `1500: DESAFIO DOS VALENTES: Doar para a igreja 1 Vassoura de pelo, 1 Rodo e 2 Panos de Chão novos.\n` +
+               `1200: VÍDEO DA TRIBO: Criar um vídeo de até 30s mostrando a união da tribo.\n` +
+               `500: ANJO DA SEMANA: "Adotar" um jovem desanimado, dando atenção especial durante a semana.\n` +
+               `1000: FOTO EM EQUIPE: A foto mais criativa com TODOS os membros da tribo fazendo um símbolo que represente a equipe.\n` +
+               `12000: META DA 2ª SEMANA: TRAZER 7 JOVENS NOVOS.`,
+            3: `🛡️ SEMANA 3 (08 a 14 de Setembro) 🛡️\n` +
+               `TEMA: RAÍZES PROFUNDAS\n` +
+               `O foco é o fortalecimento espiritual e o conhecimento da Palavra.\n` +
+               `📅 MISSÕES SEMANAIS ⚔️\n\n` +
+               `50: SEGUNDA (08/09) 🅰️➕ ALGO A MAIS: por jovem presente.\n` +
+               `20: BÔNUS SEGUNDA: por jovem que levar sua Bíblia física.\n` +
+               `150: TERÇA (09/09) 💌 EVANGELISMO: por ação de "Cartas de Esperança".\n` +
+               `30: QUARTA (10/09) 📖 SALVAÇÃO DA ALMA: por jovem em qualquer reunião.\n` +
+               `100: BÔNUS QUARTA: para a tribo que organizar uma oração de 5 minutos antes do culto das 18h!\n` +
+               `50: QUINTA (11/09) ❤️‍🔥 TERAPIA DO AMOR: por jovem presente às 19h.\n` +
+               `25: SÁBADO (13/09) 📻 CONEXÃO JOVEM: por jovem conectado.\n` +
+               `150: DOMINGO (14/09) 🎯 GRANDE ENCONTRO JOVEM (EJ): MISSÃO PRINCIPAL por jovem na Concentração de Fé às 9h30!\n` +
+               `100: DOMINGO (14/09) 🎯 por jovem novo.\n` +
+               `75: DOMINGO (14/09) 🎯 por jovem presente às 7h.\n` +
+               `60: DOMINGO (14/09) 🎯 por jovem afastado.\n\n` +
+               `🔥 MISSÕES ESPECIAIS (BÔNUS ALTO!)\n\n` +
+               `1500: DESAFIO DOS VALENTES: Doar 2 pacotes de Copos Descartáveis (200ml) e 1 pacote de Papel Higiênico (com 4 rolos).\n` +
+               `1500: MEDITAR NA BÍBLIA: Reunir a tribo para meditar em um capítulo de Provérbios e entregar um resumo.\n` +
+               `500: ORAÇÃO COM A TRIBO: Organizar um propósito de oração com a tribo.\n` +
+               `700: FOTO "A GRAÇA NA PRÁTICA": A melhor foto representando um momento de AÇÃO PELAS ALMAS.\n` +
+               `500: META DA 3ª SEMANA: GARANTIR QUE TODOS DA TRIBO PARTICIPEM DE PELO MENOS UM PONTO DE ORAÇÃO!`,
+            4: `🛡️ SEMANA 4 (15 a 21 de Setembro) 🛡️\n` +
+               `TEMA: CONECTADOS COM O REINO\n` +
+               `Usando a criatividade e a tecnologia para evangelizar no mundo digital e além!\n` +
+               `📅 MISSÕES SEMANAIS ⚔️\n\n` +
+               `60: SEGUNDA (15/09) 🅰️➕ ALGO A MAIS: por jovem presente.\n` +
+               `300: TERÇA (16/09) 💻 EVANGELISMO DIGITAL: para a tribo que criar um conteúdo evangelístico que alcance mais de 50 curtidas.\n` +
+               `40: QUARTA (17/09) 📖 SALVAÇÃO DA ALMA: por jovem em qualquer reunião.\n` +
+               `150: BÔNUS QUARTA: para a tribo que fizer uma live de 5 min no Instagram antes do culto das 18h!\n` +
+               `70: QUINTA (18/09) ❤️‍🔥 TERAPIA DO AMOR: por jovem presente.\n` +
+               `30: SÁBADO (20/09) 📻 CONEXÃO JOVEM: por jovem conectado.\n` +
+               `50: BÔNUS SÁBADO: por postar um print nos stories marcando a FJU.\n` +
+               `170: DOMINGO (21/09) 🎯 GRANDE ENCONTRO JOVEM (EJ): MISSÃO PRINCIPAL por jovem na Concentração de Fé às 9h30!\n` +
+               `130: DOMINGO (21/09) 🎯 por jovem novo.\n` +
+               `90: DOMINGO (21/09) 🎯 por jovem presente às 7h.\n` +
+               `80: DOMINGO (21/09) 🎯 por jovem afastado.\n\n` +
+               `🔥 MISSÕES ESPECIAIS (BÔNUS ALTO!)\n\n` +
+               `1800: DESAFIO DOS VALENTES: Doar para a igreja 2 litros de Desinfetante e 1 garrafa de Álcool 70%.\n` +
+               `2500: CURTA-METRAGEM: Produzir um vídeo de 1 minuto com o tema "Como a FJU mudou minha vida".\n` +
+               `1000: JINGLE DA TRIBO: Criar uma música/paródia que seja o "grito de guerra" da tribo e apresentar em vídeo.\n` +
+               `1800: EVANGELISMO COM TALENTO: Organizar uma evangelização criativa em praça pública.\n` +
+               `1000: META DA 4ª SEMANA: FAZER 10 PESSOAS NOVAS SEGUIREM A PÁGINA OFICIAL DA FJU LOCAL (enviar prints).`,
+            5: `🛡️ SEMANA 5 (22 a 28 de Setembro) 🛡️\n` +
+               `TEMA: A GRANDE CONQUISTA (PONTUAÇÃO DOBRADA!)\n` +
+               `A reta final! É hora de dar o gás, lutar com todas as forças pelas almas e pela vitória!\n` +
+               `📅 MISSÕES SEMANAIS ⚔️\n\n` +
+               `100: SEGUNDA (22/09) 🅰️➕ ALGO A MAIS: por jovem presente.\n` +
+               `500: TERÇA (23/09) 📣 ARRASTÃO DA SALVAÇÃO: por tribo que realizar um grande evangelismo em massa.\n` +
+               `80: QUARTA (24/09) 📖 SALVAÇÃO DA ALMA: por jovem em qualquer reunião.\n` +
+               `1000: BÔNUS QUARTA: A tribo que levar TODOS os seus membros no culto das 18h ganha PONTOS extras!\n` +
+               `120: QUINTA (25/09) ❤️‍🔥 TERAPIA DO AMOR: por jovem presente às 19h.\n` +
+               `60: SÁBADO (27/09) 📻 CONEXÃO JOVEM: por jovem conectado.\n` +
+               `300: DOMINGO (28/09) 🎯 GRANDE ENCONTRO JOVEM FINAL (EJ): MISSÃO PRINCIPAL FINAL por jovem na Concentração de Fé às 9h30!\n` +
+               `250: DOMINGO (28/09) 🎯 por jovem novo.\n` +
+               `150: DOMINGO (28/09) 🎯 por jovem presente às 7h.\n` +
+               `150: DOMINGO (28/09) 🎯 por jovem afastado que retornar.\n\n` +
+               `🔥 MISSÕES ESPECIAIS (BÔNUS MÁXIMOS!)\n\n` +
+               `4000: DESAFIO DOS VALENTES: Doar para o departamento infantil 2 Colas de Isopor (grande) e 2 pacotes de Papel A4 colorido.\n` +
+               `5000: DOCUMENTÁRIO DA JORNADA: Criar um vídeo de 2 min com os melhores momentos da tribo durante todo o Rally.\n` +
+               `500: NOITE DE GALA (QUARTA, 24/09): CADA JOVEM DA TRIBO se prepara para a melhor NOITE DA SALVAÇÃO. Todo produzido, ganha CADA JOVEM!\n` +
+               `2000: A FOTO DA TRIBO COM OS VALENTES: Tirar a foto mais épica da tribo na última semana do Rally. A votação será aberta!\n` +
+               `20000: META FINAL DA 5ª SEMANA: TRAZER 10 JOVENS NOVOS PARA O ÚLTIMO ENCONTRO JOVEM.`
+        };
+
+        let atividadesDaSemanaRenderizadas = [];
+        let tribosInfo = {};
+        let tribosNomes = [];
+        let tituloDoEvento = "RALLY FJU";
+        let subtituloDoEvento = "Só os valentes fazem a diferença!";
+
+        function aplicarTema(tema) {
+            const root = document.documentElement;
+            root.style.setProperty('--cor-principal', tema.principal || '#00539f');
+            root.style.setProperty('--cor-secundaria', tema.secundaria || '#003a70');
+            root.style.setProperty('--cor-destaque', tema.destaque || '#d52b1e');
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', tema.principal || '#00539f');
+        }
+
+        async function carregarConfiguracoesDoEvento() {
+            try {
+                const configDoc = await getDoc(doc(db, "configuracao", "geral"));
+                if (configDoc.exists()) {
+                    rallyConfig = configDoc.data();
+                    tituloDoEvento = rallyConfig.tituloEvento || "RALLY FJU";
+                    subtituloDoEvento = rallyConfig.subtituloEvento || "Só os valentes fazem a diferença!";
+                    tribosInfo = rallyConfig.tribosAtivas || {};
+                    tribosNomes = Object.keys(tribosInfo);
+                    if(rallyConfig.tema) aplicarTema(rallyConfig.tema);
+                    
+                    document.title = `${tituloDoEvento} - FJU`;
+                    const tituloH1 = document.getElementById('titulo-evento-h1');
+                    const subtituloP = document.getElementById('subtitulo-evento-p');
+                    if (tituloH1) tituloH1.textContent = tituloDoEvento;
+                    if (subtituloP) subtituloP.textContent = subtituloDoEvento;
+
+                } else {
+                    console.warn("Documento de configuração não encontrado. Usando valores padrão.");
+                }
+            } catch (e) {
+                console.error("Erro ao carregar configurações do evento:", e);
+                mostrarMensagem("Não foi possível carregar as configurações do evento.", "error");
+            }
+        }
+
+        let paginaInicialDiv, loginPanelDiv, painelAssistenteDiv, modalMensagem, modalConteudo, loadingOverlay, modalMissoes, modalPerfil, modalConfigRally;
+        
+        function showLoading(msg = 'Carregando...') { 
+            if (loadingOverlay) {
+                document.getElementById('loading-text').textContent = msg; 
+                loadingOverlay.classList.remove('hidden'); 
+            }
+        }
+        function hideLoading() { 
+            if (loadingOverlay) {
+                loadingOverlay.classList.add('hidden'); 
+            }
+        }
+        function mostrarPagina(pagina) { 
+            [paginaInicialDiv, loginPanelDiv, painelAssistenteDiv].forEach(el => {
+                if (el) el.classList.add('hidden');
+            }); 
+            const pageToShow = document.getElementById(pagina);
+            if (pageToShow) {
+                pageToShow.classList.remove('hidden');
+            }
+        }
+        function mostrarMensagem(mensagem, tipo = 'info', isConfirmation = false, onConfirm = () => {}, onCancel = () => {}) {
+            let bgColorClass = 'bg-blue-100 text-blue-800';
+            if (tipo === 'success') bgColorClass = 'bg-green-100 text-green-800';
+            if (tipo === 'error') bgColorClass = 'bg-red-100 text-red-800';
+            if (tipo === 'warning') bgColorClass = 'bg-yellow-100 text-yellow-800';
+
+            const contentHTML = typeof mensagem === 'string' 
+                ? `<div class="text-xl font-semibold">${mensagem}</div>` 
+                : mensagem;
+
+            modalConteudo.innerHTML = `<div class="p-6 rounded-xl shadow-lg text-center max-w-lg mx-auto ${bgColorClass}">${contentHTML}${isConfirmation ? `<div class="mt-4 flex justify-around"><button id="btn-confirma" class="bg-principal text-white px-6 py-2 rounded-full">Confirmar</button><button id="btn-cancela" class="bg-gray-400 text-white px-6 py-2 rounded-full">Cancelar</button></div>` : `<button id="btn-ok" class="bg-principal text-white px-6 py-2 rounded-full mt-4">OK</button>`}</div>`;
+            modalMensagem.classList.remove('hidden');
+            if (isConfirmation) {
+                document.getElementById('btn-confirma').onclick = () => { onConfirm(); modalMensagem.classList.add('hidden'); };
+                document.getElementById('btn-cancela').onclick = () => { onCancel(); modalMensagem.classList.add('hidden'); };
+            } else {
+                document.getElementById('btn-ok').onclick = () => modalMensagem.classList.add('hidden');
+            }
+        }
+        
+        async function setupFirestoreListeners() {
+            if (rallyConfig.finalizado) return;
+            if (Object.keys(tribosInfo).length === 0) {
+                 console.log("Nenhuma tribo configurada. Listeners não iniciados.");
+                 return;
+            }
+            onSnapshot(collection(db, "tribos"), (snapshot) => {
+                const tribos = [];
+                snapshot.forEach((doc) => {
+                    if(tribosInfo[doc.id]){
+                        tribos.push({ id: doc.id, ...doc.data() });
+                    }
+                });
+                
+                if (paginaInicialDiv && !paginaInicialDiv.classList.contains('hidden')) {
+                    renderizarRankingProfissional(tribos);
+                } else if (painelAssistenteDiv && !painelAssistenteDiv.classList.contains('hidden')) {
+                     if(document.getElementById('conteudo-visaoGeral') && !document.getElementById('conteudo-visaoGeral').classList.contains('hidden')) {
+                        renderizarVisaoGeral(tribos);
+                    }
+                }
+            });
+        }
+
+        async function renderizarRankingFinalAnimado() {
+            function fireConfetti(isWinner) {
+                const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 100 };
+                function randomInRange(min, max) { return Math.random() * (max - min) + min; }
+                const interval = setInterval(function() {
+                    const particleCount = isWinner ? 200 : 50;
+                    confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+                    confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+                }, 250);
+                setTimeout(() => clearInterval(interval), isWinner ? 4000 : 1000);
+            }
+
+            const container = document.getElementById('ranking-container');
+            const ranking = rallyConfig.rankingFinal || [];
+            if(ranking.length === 0){
+                container.innerHTML = `<div class="text-center text-2xl font-bold text-secundaria p-8">O Rally foi finalizado!</div>`;
+                return;
+            }
+
+            container.innerHTML = `<div class="text-center text-4xl font-black text-secundaria p-8 animate-fadeIn text-glow">GRANDES CAMPEÕES DO ${tituloDoEvento}</div>
+                                   <div id="podium-final" class="flex items-end justify-center w-full mt-8"></div>`;
+            const podiumContainer = document.getElementById('podium-final');
+            const rankingInvertido = [...ranking].slice(0, 3).reverse();
+
+            rankingInvertido.forEach((tribo, index) => {
+                setTimeout(() => {
+                    const rank = 3 - index;
+                    const isWinner = rank === 1;
+                    let iconHTML = '';
+                    if (rank === 1) iconHTML = '<i class="fas fa-trophy text-5xl" style="color: var(--cor-ouro);"></i>';
+                    if (rank === 2) iconHTML = '<i class="fas fa-medal text-5xl" style="color: var(--cor-prata);"></i>';
+                    if (rank === 3) iconHTML = '<i class="fas fa-medal text-5xl" style="color: var(--cor-bronze);"></i>';
+                    const element = document.createElement('div');
+                    element.className = `podium-${rank} w-1/3 flex flex-col items-center text-center p-4 opacity-0 animate-fadeInUp tribo-card`;
+                    element.innerHTML = `
+                        ${iconHTML}
+                        <img src="${tribo.img}" alt="${tribo.nome}" class="w-24 h-24 rounded-full border-4 ${isWinner ? 'border-yellow-400' : 'border-gray-300'} my-4 object-cover shadow-lg">
+                        <h3 class="text-2xl font-bold text-secundaria uppercase">${tribo.nome}</h3>
+                        <p class="text-4xl font-black font-montserrat text-principal">${tribo.pontos || 0}</p>
+                        <div class="h-24 w-full ${rank === 1 ? 'bg-yellow-400' : (rank === 2 ? 'bg-gray-400' : 'bg-orange-700')} mt-2 rounded-t-lg flex items-center justify-center text-4xl font-bold text-white shadow-inner">${rank}º</div>
+                    `;
+                    podiumContainer.appendChild(element);
+                    fireConfetti(isWinner);
+                }, (index + 1) * 2000);
+            });
+        }
+        
+        function renderizarRankingProfissional(tribos) {
+            const container = document.getElementById('ranking-container');
+            if (!container) return;
+
+            const ranking = tribos.filter(t => tribosInfo[t.id]).sort((a, b) => (b.pontos || 0) - (a.pontos || 0));
+
+            const podiumHTML = ranking.slice(0, 3).map((tribo, index) => {
+                const rank = index + 1;
+                const info = tribosInfo[tribo.id];
+                if (!info) return '';
+                let iconHTML = '';
+                if (rank === 1) iconHTML = '<i class="fas fa-trophy text-4xl" style="color: var(--cor-ouro);"></i>';
+                if (rank === 2) iconHTML = '<i class="fas fa-medal text-4xl" style="color: var(--cor-prata);"></i>';
+                if (rank === 3) iconHTML = '<i class="fas fa-medal text-4xl" style="color: var(--cor-bronze);"></i>';
+
+                return `
+                    <div class="podium-${rank} w-1/3 flex flex-col items-center text-center p-2 md:p-4 opacity-0 animate-fadeInUp tribo-card" style="animation-delay: ${index * 200}ms;">
+                        ${iconHTML}
+                        <img src="${info.img}" alt="${info.nome}" class="w-20 h-20 md:w-24 md:h-24 rounded-full border-4 ${rank === 1 ? 'border-yellow-400' : 'border-gray-300'} my-3 object-cover shadow-lg">
+                        <h3 class="text-xl md:text-2xl font-bold text-secundaria uppercase">${info.nome}</h3>
+                        <p class="text-2xl md:text-3xl font-black font-montserrat text-principal">${tribo.pontos || 0}</p>
+                        <div class="h-16 md:h-24 w-full ${rank === 1 ? 'bg-yellow-400' : (rank === 2 ? 'bg-gray-400' : 'bg-orange-700')} mt-2 rounded-t-lg flex items-center justify-center text-2xl md:text-3xl font-bold text-white shadow-inner">${rank}º</div>
+                    </div>
+                `;
+            }).join('');
+            
+            const othersHTML = ranking.slice(3).map((tribo, index) => {
+                 const info = tribosInfo[tribo.id];
+                 if (!info) return '';
+                 return `
+                    <div class="w-full bg-white p-4 rounded-lg shadow-md mt-4 opacity-0 animate-fadeInUp tribo-card" style="animation-delay: ${(index + 3) * 150}ms;">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <span class="text-xl font-bold text-gray-500 mr-4">${index + 4}º</span>
+                                <img src="${info.img}" class="w-12 h-12 rounded-full object-cover mr-4">
+                                <span class="text-lg font-semibold">${info.nome}</span>
+                            </div>
+                            <span class="text-2xl font-bold font-montserrat">${tribo.pontos || 0} pts</span>
+                        </div>
+                    </div>
+                 `;
+            }).join('');
+
+            container.innerHTML = `<div class="flex items-end justify-center w-full">${podiumHTML}</div><div class="w-full mt-4">${othersHTML}</div>`;
+        }
+
+        async function abrirModalDeMissoes() {
+            const conteudo = document.getElementById('conteudo-modal-missoes');
+            conteudo.innerHTML = '<p>Carregando missões...</p>';
+            modalMissoes.classList.remove('hidden');
+            try {
+                const configDoc = await getDoc(doc(db, "config", "semanas"));
+                const semanaAtual = configDoc.exists() ? configDoc.data().semanaAtual : 1;
+                const missaoDoc = await getDoc(doc(db, "missoes", `semana${semanaAtual}`));
+                
+                let missaoTexto = missaoDoc.exists() && missaoDoc.data().texto ? missaoDoc.data().texto : (MISSOES_PADRAO[semanaAtual] || "A missão desta semana ainda não foi definida.");
+
+                conteudo.innerHTML = `
+                    <h2 class="text-3xl font-bold text-principal mb-4">Missão da Semana ${semanaAtual}</h2>
+                    <div class="text-left text-lg whitespace-pre-wrap bg-gray-100 p-4 rounded-lg max-h-96 overflow-y-auto">${missaoTexto}</div>
+                `;
+            } catch(e) {
+                conteudo.innerHTML = '<p class="text-red-500">Erro ao carregar a missão.</p>';
+            }
+        }
+
+        async function carregarConteudoPainel(aba) {
+            document.querySelectorAll('#conteudo-painel > div').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('#sidebar-nav button').forEach(btn => btn.classList.remove('bg-secundaria'));
+            const contentDiv = document.getElementById(`conteudo-${aba}`);
+            if(contentDiv) contentDiv.classList.remove('hidden');
+            const tabButton = document.getElementById(`tab-painel-${aba}`);
+            if(tabButton) tabButton.classList.add('bg-secundaria');
+            
+            if (aba === 'visaoGeral') {
+                const tribosSnapshot = await getDocs(collection(db, "tribos"));
+                const tribos = tribosSnapshot.docs.map(d => ({id: d.id, ...d.data()}));
+                renderizarVisaoGeral(tribos);
+            }
+            if (aba === 'pontuacaoSemanal') await renderizarPontuacaoSemanal();
+            if (aba === 'relatorioGeral') renderizarRelatorioGeral();
+            if (aba === 'gerenciarObreiros') await renderizarGerenciarObreiros();
+            if (aba === 'gerenciarJovens') await renderizarGerenciarJovens();
+            if (aba === 'gerenciarSemanas') await renderizarGerenciarSemanas();
+            if (aba === 'configuracoes') await renderizarConfiguracoes();
+        }
+        window.carregarConteudoPainel = carregarConteudoPainel;
+
+        function renderizarVisaoGeral(tribos) {
+            const container = document.getElementById('conteudo-visaoGeral');
+            if(!container) return;
+            const tribosOrdenadas = tribos.filter(t => tribosInfo[t.id]).sort((a, b) => (b.pontos || 0) - (a.pontos || 0));
+            container.innerHTML = `<h3 class="text-3xl font-bold text-principal mb-6">Visão Geral do Rally (Ranking)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">${tribosOrdenadas.map((tribo, index) => {
+                const info = tribosInfo[tribo.id]; 
+                if (!info) return '';
+                return `
+                <div class="bg-white rounded-xl shadow-lg p-6 text-center border-b-8 ${index === 0 ? 'border-yellow-400' : 'border-gray-200'} tribo-card">
+                    ${index === 0 ? '<i class="fas fa-trophy text-yellow-400 text-3xl mb-2"></i><p class="font-bold text-yellow-500">1º LUGAR</p>' : `<p class="font-bold text-gray-500">${index + 1}º LUGAR</p>`}
+                    <img src="${info.img}" alt="Logo ${info.nome}" class="w-16 h-16 mx-auto my-2 rounded-full object-cover">
+                    <h4 class="text-2xl font-bold uppercase">${info.nome}</h4>
+                    <p class="text-4xl mt-2 font-montserrat font-black text-secundaria">${tribo.pontos || 0}</p>
+                    <p class="text-sm text-gray-500">pontos</p>
+                </div>`
+            }).join('')}</div>`;
+        }
+
+        async function renderizarPontuacaoSemanal() {
+            const container = document.getElementById('conteudo-pontuacaoSemanal');
+            if (tribosNomes.length === 0) {
+                 container.innerHTML = `<h3 class="text-3xl font-bold text-principal mb-2">Controle de Pontuação</h3><p class="text-red-600">Nenhuma tribo foi configurada. Por favor, selecione as tribos participantes na aba 'Configurações'.</p>`;
+                 return;
+            }
+            container.innerHTML = `
+                <h3 class="text-3xl font-bold text-principal mb-2">Controle de Pontuação</h3>
+                <p class="text-gray-600 mb-6">As atividades da semana são carregadas da missão. Use "Lançamento Avulso" para pontos não programados.</p>
+                <div class="mb-4 border-b border-gray-200">
+                    <nav class="flex space-x-4">
+                        <button onclick="trocarAbaPontos('semanal')" class="py-2 px-4 font-semibold border-b-2 border-principal text-principal">Lançamento da Semana</button>
+                        <button onclick="trocarAbaPontos('manual')" class="py-2 px-4 font-semibold border-b-2 border-transparent text-gray-500 hover:text-principal">Lançamento Avulso</button>
+                    </nav>
+                </div>
+                <div id="aba-pontos-semanal">
+                    <div id="checklist-container" class="space-y-6"></div>
+                    <button onclick="salvarPontosDaSemana()" class="mt-8 w-full bg-principal hover:bg-secundaria text-white font-bold py-4 px-6 rounded-lg text-lg"><i class="fas fa-save mr-2"></i> Salvar Todas as Pontuações</button>
+                </div>
+                <div id="aba-pontos-manual" class="hidden">
+                     <div class="bg-white p-6 rounded-xl shadow-lg border">
+                         <h4 class="text-xl font-bold text-secundaria mb-4 border-b pb-2">Registrar Pontos Avulsos</h4>
+                         <p class="text-sm text-gray-600 mb-4">Digite os pontos (positivos ou negativos) para cada tribo abaixo e clique em registrar.</p>
+                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4" id="lista-tribos-avulso">
+                            ${tribosNomes.map(id => `
+                                <div class="bg-gray-50 p-3 rounded-lg border">
+                                    <div class="flex items-center mb-2">
+                                        <img src="${tribosInfo[id].img}" class="w-8 h-8 rounded-full mr-2">
+                                        <label for="pontos-avulso-${id}" class="font-semibold">${tribosInfo[id].nome}</label>
+                                    </div>
+                                    <input type="number" id="pontos-avulso-${id}" class="w-full text-center font-bold p-2 border rounded-lg" placeholder="0">
+                                </div>
+                            `).join('')}
+                         </div>
+                         <div class="flex gap-4 pt-4 mt-4 border-t">
+                             <textarea id="motivo-avulso" class="w-full p-2 border rounded-lg" placeholder="Motivo do lançamento (ex: Punição por atraso)"></textarea>
+                         </div>
+                         <div class="flex gap-4 pt-4">
+                            <button onclick="registrarPontosManuais()" class="w-full bg-principal hover:bg-secundaria text-white font-bold py-3 px-4 rounded-lg"><i class="fas fa-check mr-2"></i> Registrar Pontuações</button>
+                         </div>
+                     </div>
+                </div>`;
+            await renderChecklistSemanal();
+        }
+        window.trocarAbaPontos = (aba) => {
+            document.getElementById('aba-pontos-semanal').classList.toggle('hidden', aba !== 'semanal');
+            document.getElementById('aba-pontos-manual').classList.toggle('hidden', aba !== 'manual');
+            document.querySelector('button[onclick="trocarAbaPontos(\'semanal\')"]').classList.toggle('border-principal', aba === 'semanal');
+            document.querySelector('button[onclick="trocarAbaPontos(\'semanal\')"]').classList.toggle('text-principal', aba === 'semanal');
+            document.querySelector('button[onclick="trocarAbaPontos(\'semanal\')"]').classList.toggle('border-transparent', aba !== 'semanal');
+            document.querySelector('button[onclick="trocarAbaPontos(\'semanal\')"]').classList.toggle('text-gray-500', aba !== 'semanal');
+            document.querySelector('button[onclick="trocarAbaPontos(\'manual\')"]').classList.toggle('border-principal', aba === 'manual');
+            document.querySelector('button[onclick="trocarAbaPontos(\'manual\')"]').classList.toggle('text-principal', aba === 'manual');
+            document.querySelector('button[onclick="trocarAbaPontos(\'manual\')"]').classList.toggle('border-transparent', aba !== 'manual');
+            document.querySelector('button[onclick="trocarAbaPontos(\'manual\')"]').classList.toggle('text-gray-500', aba !== 'manual');
+        }
+        async function renderChecklistSemanal() {
+            const container = document.getElementById('checklist-container');
+            container.innerHTML = '<div class="text-center p-8 text-gray-500">Carregando atividades da missão...</div>';
+            atividadesDaSemanaRenderizadas = [];
+            try {
+                const configDoc = await getDoc(doc(db, "config", "semanas"));
+                const semanaAtual = configDoc.exists() ? configDoc.data().semanaAtual || 1 : 1;
+                const missaoDoc = await getDoc(doc(db, "missoes", `semana${semanaAtual}`));
+                
+                let atividadesDaMissao = [];
+                const textoMissao = missaoDoc.exists() && missaoDoc.data().texto ? missaoDoc.data().texto : MISSOES_PADRAO[semanaAtual];
+
+                if (textoMissao) {
+                    const regex = /^(-?\d+):\s*(.*)/gm;
+                    let match;
+                    while ((match = regex.exec(textoMissao)) !== null) {
+                        atividadesDaMissao.push({ id: `missao_${atividadesDaMissao.length}`, nome: match[2].trim(), pontos: parseInt(match[1]) });
+                    }
+                }
+                
+                atividadesDaSemanaRenderizadas = [...atividadesDaMissao];
+                if (atividadesDaSemanaRenderizadas.length === 0) {
+                     container.innerHTML = '<div class="text-center p-8 text-gray-500">Nenhuma atividade pontuável encontrada na missão desta semana.</div>';
+                    return;
+                }
+
+                container.innerHTML = atividadesDaMissao.map(a => renderAtividadeCard(a)).join('');
+
+            } catch(e) {
+                console.error("Erro ao renderizar checklist:", e);
+                container.innerHTML = '<div class="text-center p-8 text-red-500">Erro ao carregar atividades.</div>';
+            }
+        }
+        function renderAtividadeCard(atividade) {
+            let descricaoPontos = '';
+            const nomeLower = atividade.nome.toLowerCase();
+            if (nomeLower.includes('por jovem') || nomeLower.includes('cada jovem')) {
+                descricaoPontos = `<span class="font-bold">${atividade.pontos}</span> pontos por jovem`;
+            } else if (nomeLower.includes('por trabalho') || nomeLower.includes('por ação')) {
+                descricaoPontos = `<span class="font-bold">${atividade.pontos}</span> pontos por ação`;
+            } else {
+                descricaoPontos = `<span class="font-bold">${atividade.pontos}</span> pontos (valor total da missão)`;
+            }
+
+            return `<div class="bg-white p-4 rounded-xl shadow-md border border-t-4 border-principal" id="atividade-${atividade.id}">
+                        <h4 class="text-lg font-bold text-secundaria mb-2">${atividade.nome}</h4>
+                        <p class="text-sm text-gray-600 bg-gray-100 p-2 rounded-md mb-4">${descricaoPontos}</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            ${tribosNomes.map(triboId => {
+                                const info = tribosInfo[triboId];
+                                if (!info) return '';
+                                return `
+                                <div class="bg-gray-50 p-3 rounded-lg border">
+                                    <div class="flex items-center mb-2">
+                                        <img src="${info.img}" class="w-8 h-8 rounded-full mr-2">
+                                        <label for="${atividade.id}-${triboId}" class="font-semibold">${info.nome}</label>
+                                    </div>
+                                    <input type="number" id="${atividade.id}-${triboId}" class="w-full text-center font-bold p-2 border rounded-lg" value="0">
+                                </div>
+                            `}).join('')}
+                        </div>
+                    </div>`;
+        }
+        
+		window.salvarPontosDaSemana = async () => {
+			showLoading("Processando pontuações...");
+			const batch = writeBatch(db);
+			const tribosPontosAcumulados = tribosNomes.reduce((acc, tid) => ({...acc, [tid]: 0}), {});
+			const historicoEntradas = [];
+
+			atividadesDaSemanaRenderizadas.forEach(atividade => {
+				tribosNomes.forEach(triboId => {
+					const input = document.getElementById(`${atividade.id}-${triboId}`);
+					const pontos = parseInt(input?.value) || 0;
+					if (pontos !== 0) {
+						tribosPontosAcumulados[triboId] += pontos;
+						historicoEntradas.push({
+							triboId,
+							triboNome: tribosInfo[triboId]?.nome || triboId,
+							pontos,
+							motivo: atividade.nome,
+							data: new Date()
+						});
+					}
+				});
+			});
+
+			if (historicoEntradas.length === 0) {
+				hideLoading();
+				return mostrarMensagem("Nenhuma pontuação foi inserida.", "info");
+			}
+
+			try {
+				for (const triboId of tribosNomes) {
+					const pontosSomados = tribosPontosAcumulados[triboId];
+					if (pontosSomados === 0) continue;
+
+					const triboRef = doc(db, "tribos", triboId);
+					const triboSnap = await getDoc(triboRef);
+
+					let pontosAtuais = 0;
+					if (triboSnap.exists()) {
+						pontosAtuais = triboSnap.data().pontos || 0;
+					}
+
+					const novosPontos = Math.max(0, pontosAtuais + pontosSomados);
+					batch.set(triboRef, { pontos: novosPontos }, { merge: true });
+				}
+
+				historicoEntradas.forEach(entrada => {
+					const histRef = doc(collection(db, "historico_pontos"));
+					batch.set(histRef, entrada);
+				});
+
+				await batch.commit();
+
+				hideLoading();
+				await renderChecklistSemanal();
+				mostrarMensagem("✅ Todas as pontuações foram salvas com sucesso!", "success");
+			} catch (e) {
+				hideLoading();
+				console.error("Erro ao salvar pontos:", e);
+				mostrarMensagem("⚠️ Erro ao salvar as pontuações. Verifique o console.", "error");
+			}
+		};
+
+        window.registrarPontosManuais = async () => {
+             const motivo = document.getElementById(`motivo-avulso`).value.trim();
+            if (!motivo) return mostrarMensagem("Por favor, informe o motivo do lançamento avulso.", 'warning');
+            
+            const historicoEntradas = [];
+            tribosNomes.forEach(triboId => {
+                const input = document.getElementById(`pontos-avulso-${triboId}`);
+                const pontos = parseInt(input.value) || 0;
+                if (pontos !== 0) {
+                    historicoEntradas.push({ triboId, pontos });
+                }
+            });
+
+            if (historicoEntradas.length === 0) return mostrarMensagem("Nenhum ponto foi inserido para registrar.", 'info');
+
+            showLoading("Registrando...");
+            try {
+                const batch = writeBatch(db);
+                const tribosMap = new Map((await getDocs(collection(db, "tribos"))).docs.map(d => [d.id, d.data().pontos || 0]));
+
+                for (const entrada of historicoEntradas) {
+                    const { triboId, pontos } = entrada;
+                    const info = tribosInfo[triboId];
+                    const triboRef = doc(db, "tribos", triboId);
+                    const currentPontos = tribosMap.get(triboId) || 0;
+                    const newPontos = Math.max(0, currentPontos + pontos);
+                    
+                    batch.update(triboRef, { pontos: newPontos });
+                    batch.set(doc(collection(db, "historico_pontos")), { triboId, triboNome: info.nome, pontos, motivo, data: new Date() });
+                }
+                await batch.commit();
+                
+                tribosNomes.forEach(id => document.getElementById(`pontos-avulso-${id}`).value = '');
+                document.getElementById(`motivo-avulso`).value = '';
+                hideLoading();
+                mostrarMensagem(`Pontuação avulsa registrada com sucesso!`, 'success');
+            } catch(e) { hideLoading(); mostrarMensagem("Erro ao registrar a pontuação.", 'error'); }
+        }
+        
+        window.abrirModalPerfil = async (id, tipo) => {
+            modalPerfil.classList.remove('hidden');
+            const conteudo = document.getElementById('conteudo-modal-perfil');
+            conteudo.innerHTML = `<div class="text-center"><i class="fas fa-spinner fa-spin text-4xl text-principal"></i></div>`;
+            
+            try {
+                const docRef = doc(db, tipo, id);
+                const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) {
+                    conteudo.innerHTML = `<p class="text-red-500">Erro: Perfil não encontrado.</p>`;
+                    return;
+                }
+                const data = docSnap.data();
+                const fotoURL = data.fotoURL || 'https://via.placeholder.com/150';
+                
+                conteudo.innerHTML = `
+                    <div class="flex flex-col items-center">
+                        <div class="profile-photo-container mb-4">
+                            <img id="perfil-foto" src="${fotoURL}" class="w-32 h-32 rounded-full object-cover border-4 border-principal bg-gray-200">
+                            <div class="profile-photo-overlay"><i class="fas fa-camera text-2xl"></i></div>
+                            <input type="file" id="perfil-foto-input" class="hidden" accept="image/*">
+                        </div>
+                        <div class="w-full space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Nome</label>
+                                <input type="text" id="perfil-nome" value="${data.nome}" class="w-full p-2 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Contato (Telefone)</label>
+                                <input type="text" id="perfil-contato" value="${data.contato || ''}" placeholder="(XX) XXXXX-XXXX" class="w-full p-2 border rounded-lg">
+                            </div>
+                        </div>
+                        <div class="mt-6 w-full">
+                            <button onclick="salvarPerfil('${id}', '${tipo}')" class="w-full bg-principal text-white py-3 rounded-lg font-bold hover:bg-secundaria">Salvar Alterações</button>
+                        </div>
+                    </div>
+                `;
+
+                document.querySelector('.profile-photo-container').onclick = () => document.getElementById('perfil-foto-input').click();
+                
+                document.getElementById('perfil-foto-input').onchange = (event) => {
+                    const file = event.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => { document.getElementById('perfil-foto').src = e.target.result; };
+                        reader.readAsDataURL(file);
+                    }
+                };
+            } catch (e) {
+                console.error("Erro ao abrir perfil:", e);
+                conteudo.innerHTML = `<p class="text-red-500">Ocorreu um erro ao carregar o perfil.</p>`;
+            }
+        }
+        
+        window.salvarPerfil = async (id, tipo) => {
+            const nome = document.getElementById('perfil-nome').value.trim();
+            const contato = document.getElementById('perfil-contato').value.trim();
+            const fotoInput = document.getElementById('perfil-foto-input');
+            const file = fotoInput.files[0];
+
+            if(!nome) return mostrarMensagem("O nome não pode ficar em branco.", "warning");
+
+            showLoading("Salvando perfil...");
+
+            try {
+                let fotoURL;
+                if(file) {
+                    const storageRef = ref(storage, `${tipo}_fotos/${id}_${Date.now()}`);
+                    const snapshot = await uploadBytes(storageRef, file);
+                    fotoURL = await getDownloadURL(snapshot.ref);
+                }
+
+                const dataToUpdate = { nome, contato };
+                if (fotoURL) dataToUpdate.fotoURL = fotoURL;
+
+                await updateDoc(doc(db, tipo, id), dataToUpdate);
+                hideLoading();
+                modalPerfil.classList.add('hidden');
+                mostrarMensagem("Perfil atualizado com sucesso!", "success");
+
+                if(tipo === 'obreiros') await carregarListaDeObreiros();
+                if(tipo === 'jovens') await carregarListaDeJovens();
+
+            } catch(e) {
+                hideLoading();
+                console.error("Erro ao salvar perfil:", e);
+                mostrarMensagem("Erro ao salvar o perfil.", "error");
+            }
+        }
+
+        window.marcarPresenca = (btn, isFalta = false) => {
+            const parent = btn.parentElement;
+            parent.querySelectorAll('button').forEach(b => b.classList.remove('bg-green-500', 'bg-red-500', 'text-white'));
+            btn.classList.add(isFalta ? 'bg-red-500' : 'bg-green-500', 'text-white');
+            const justificativaInput = parent.closest('td').querySelector('input[data-tipo="justificativa"]');
+            if (justificativaInput) justificativaInput.classList.toggle('hidden', !isFalta);
+        }
+
+        const adicionarNovaPessoa = async (tipo) => {
+            const sufixo = (tipo === 'jovens') ? 'jovem' : 'obreiro';
+            const input = document.getElementById(`nome-novo-${sufixo}`);
+            
+            if (!input) {
+                console.error(`Elemento de input 'nome-novo-${sufixo}' não foi encontrado.`);
+                return;
+            }
+
+            const nome = input.value.trim();
+            if (!nome) {
+                return mostrarMensagem("O nome não pode estar vazio.", 'warning');
+            }
+            
+            showLoading("Adicionando...");
+            try {
+                await addDoc(collection(db, tipo), { nome, dataCadastro: new Date() });
+                input.value = '';
+                hideLoading();
+                mostrarMensagem(`${sufixo.charAt(0).toUpperCase() + sufixo.slice(1)} adicionado(a) com sucesso!`, 'success');
+                
+                if (tipo === 'obreiros') await carregarListaDeObreiros();
+                if (tipo === 'jovens') await carregarListaDeJovens();
+            } catch (e) {
+                hideLoading();
+                console.error("Erro ao adicionar:", e);
+                mostrarMensagem("Erro ao adicionar.", 'error');
+            }
+        };
+        
+        window.excluirPessoa = (id, nome, tipo) => {
+            mostrarMensagem(`Tem certeza que deseja excluir ${nome}?`, 'warning', true, async () => {
+                showLoading("Excluindo...");
+                try {
+                    await deleteDoc(doc(db, tipo, id));
+                    hideLoading();
+                    mostrarMensagem(`${nome} foi excluído(a).`, 'success');
+                    if (tipo === 'obreiros') await carregarListaDeObreiros();
+                    if (tipo === 'jovens') await carregarListaDeJovens();
+                } catch (e) {
+                    hideLoading();
+                    mostrarMensagem("Erro ao excluir.", 'error');
+                }
+            });
+        }
+
+        async function renderizarGerenciarObreiros() {
+            const container = document.getElementById('conteudo-gerenciarObreiros');
+            container.innerHTML = `
+                <h3 class="text-3xl font-bold text-principal mb-2">Gerenciamento de Obreiros</h3>
+                <p class="text-gray-600 mb-6">Cadastre, edite perfis e acompanhe a frequência da sua equipe.</p>
+                <div class="mb-6 border-b border-gray-200">
+                    <nav class="flex space-x-4">
+                        <button onclick="trocarAbaObreiros('lancamento')" class="py-2 px-4 font-semibold border-b-2 border-principal text-principal">Lançamento Semanal</button>
+                        <button onclick="trocarAbaObreiros('relatorio')" class="py-2 px-4 font-semibold border-b-2 border-transparent text-gray-500 hover:text-principal">Relatório Mensal</button>
+                    </nav>
+                </div>
+                <div id="aba-lancamento-obreiros">
+                    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                        <h4 class="text-xl font-bold text-secundaria mb-4">Adicionar Novo Obreiro</h4>
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <input type="text" id="nome-novo-obreiro" placeholder="Nome completo do obreiro" class="flex-grow p-2 border rounded-lg">
+                            <button id="btn-adicionar-obreiro" class="bg-principal text-white px-6 py-2 rounded-lg font-semibold hover:bg-secundaria">Salvar Obreiro</button>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-md mb-6">
+                        <label for="data-lancamento-obreiros" class="block font-semibold mb-2 text-secundaria">Selecione a Data de Referência da Semana:</label>
+                        <input type="date" id="data-lancamento-obreiros" class="p-2 rounded-lg border w-full md:w-auto">
+                    </div>
+                    <div class="overflow-x-auto bg-white rounded-lg shadow-md">
+                        <table class="min-w-full">
+                            <thead class="bg-secundaria text-white">
+                                <tr>
+                                    <th class="p-3 text-left">Obreiro</th>
+                                    <th class="p-3 text-center">Encontro Jovem (Fim de Semana)</th>
+                                    <th class="p-3 text-center">Uniforme (Fim de Semana)</th>
+                                    <th class="p-3 text-center">Algo a Mais (Seg)</th>
+                                    <th class="p-3 text-center">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lista-lancamento-obreiros"></tbody>
+                        </table>
+                    </div>
+                    <button onclick="salvarRegistrosObreiros()" class="mt-6 w-full bg-principal hover:bg-secundaria text-white font-bold py-3 px-6 rounded-lg">Salvar Frequência da Semana</button>
+                </div>
+                <div id="aba-relatorio-obreiros" class="hidden">
+                    <div class="bg-white p-4 rounded-lg shadow-md mb-6 flex items-center gap-4">
+                        <label for="mes-relatorio-obreiros" class="font-semibold text-secundaria">Selecione o Mês:</label>
+                        <input type="month" id="mes-relatorio-obreiros" class="p-2 rounded-lg border">
+                        <button onclick="gerarRelatorioObreiros()" class="bg-principal text-white px-4 py-2 rounded-lg">Gerar Relatório</button>
+                    </div>
+                    <div id="relatorio-container-obreiros"><p class="text-center text-gray-500">Selecione um mês para começar.</p></div>
+                </div>`;
+            
+            document.getElementById('btn-adicionar-obreiro').addEventListener('click', () => adicionarNovaPessoa('obreiros'));
+            await carregarListaDeObreiros();
+        }
+        
+        window.trocarAbaObreiros = (aba) => {
+            document.getElementById('aba-lancamento-obreiros').classList.toggle('hidden', aba !== 'lancamento');
+            document.getElementById('aba-relatorio-obreiros').classList.toggle('hidden', aba !== 'relatorio');
+            document.querySelector('button[onclick="trocarAbaObreiros(\'lancamento\')"]').classList.toggle('border-principal', aba === 'lancamento');
+            document.querySelector('button[onclick="trocarAbaObreiros(\'lancamento\')"]').classList.toggle('text-principal', aba === 'lancamento');
+            document.querySelector('button[onclick="trocarAbaObreiros(\'lancamento\')"]').classList.toggle('border-transparent', aba !== 'lancamento');
+            document.querySelector('button[onclick="trocarAbaObreiros(\'lancamento\')"]').classList.toggle('text-gray-500', aba !== 'lancamento');
+            document.querySelector('button[onclick="trocarAbaObreiros(\'relatorio\')"]').classList.toggle('border-principal', aba === 'relatorio');
+            document.querySelector('button[onclick="trocarAbaObreiros(\'relatorio\')"]').classList.toggle('text-principal', aba === 'relatorio');
+            document.querySelector('button[onclick="trocarAbaObreiros(\'relatorio\')"]').classList.toggle('border-transparent', aba !== 'relatorio');
+            document.querySelector('button[onclick="trocarAbaObreiros(\'relatorio\')"]').classList.toggle('text-gray-500', aba !== 'relatorio');
+        };
+
+        async function carregarListaDeObreiros() {
+            const tbody = document.getElementById('lista-lancamento-obreiros');
+            if(!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center p-8">Carregando obreiros...</td></tr>';
+            const snapshot = await getDocs(query(collection(db, "obreiros"), orderBy("nome")));
+            if(snapshot.empty) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center p-8 text-gray-500">Nenhum obreiro cadastrado.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = snapshot.docs.map(doc => {
+                const obreiro = { id: doc.id, ...doc.data() };
+                return `
+                <tr class="border-b even:bg-gray-50" data-id="${obreiro.id}" data-nome="${obreiro.nome}">
+                    <td class="p-3 font-semibold"><a href="#" onclick="abrirModalPerfil('${obreiro.id}', 'obreiros')" class="text-principal hover:underline">${obreiro.nome}</a></td>
+                    <td class="p-3 text-center space-y-2">
+                        <div class="flex justify-center gap-2">
+                            <button onclick="marcarPresenca(this)" class="px-3 py-1 text-sm rounded-full bg-gray-200 hover:bg-green-500 hover:text-white">P</button>
+                            <button onclick="marcarPresenca(this, true)" class="px-3 py-1 text-sm rounded-full bg-gray-200 hover:bg-red-500 hover:text-white">F</button>
+                        </div>
+                        <input type="number" placeholder="Jovens" class="w-20 text-center border rounded p-1" data-tipo="jovens">
+                        <input type="text" placeholder="Justificativa" class="w-full text-center border rounded p-1 mt-1 hidden" data-tipo="justificativa">
+                    </td>
+                    <td class="p-3 text-center"><input type="checkbox" data-tipo="uniforme" class="h-5 w-5 rounded text-principal focus:ring-principal"></td>
+                    <td class="p-3 text-center space-y-2">
+                        <div class="flex justify-center gap-2">
+                            <button onclick="marcarPresenca(this)" class="px-3 py-1 text-sm rounded-full bg-gray-200 hover:bg-green-500 hover:text-white">P</button>
+                            <button onclick="marcarPresenca(this, true)" class="px-3 py-1 text-sm rounded-full bg-gray-200 hover:bg-red-500 hover:text-white">F</button>
+                        </div>
+                        <input type="text" placeholder="Justificativa" class="w-full text-center border rounded p-1 mt-1 hidden" data-tipo="justificativa">
+                    </td>
+                    <td class="p-3 text-center">
+                        <button onclick="excluirPessoa('${obreiro.id}', '${obreiro.nome.replace(/'/g, "\\'")}', 'obreiros')" class="text-red-500 hover:text-red-700 text-lg"><i class="fas fa-trash-alt"></i></button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        window.salvarRegistrosObreiros = async () => {
+            const dataLancamento = document.getElementById('data-lancamento-obreiros').value;
+            if (!dataLancamento) { return mostrarMensagem("Por favor, selecione uma data.", 'error'); }
+            showLoading("Salvando...");
+            const batch = writeBatch(db);
+            let count = 0;
+            document.querySelectorAll('#lista-lancamento-obreiros tr').forEach(row => {
+                const id = row.getAttribute('data-id');
+                const nome = row.getAttribute('data-nome');
+                if(!id) return;
+                
+                const celulaEncontro = row.querySelectorAll('td')[1];
+                const presencaBtnEncontro = celulaEncontro.querySelector('.bg-green-500, .bg-red-500');
+                if (presencaBtnEncontro) {
+                    const status = presencaBtnEncontro.textContent === 'P' ? 'presente' : 'ausente';
+                    const docId = `${dataLancamento}_${id}_encontro_jovem`;
+                    const docRef = doc(db, "registros_obreiros", docId);
+                    const dataToSet = { 
+                        obreiroId: id, obreiroNome: nome, data: dataLancamento, reuniao: 'encontro_jovem', status, 
+                        jovensTrazidos: parseInt(celulaEncontro.querySelector('input[data-tipo="jovens"]').value) || 0, 
+                        justificativa: celulaEncontro.querySelector('input[data-tipo="justificativa"]').value.trim(),
+                        uniforme: row.querySelector('input[data-tipo="uniforme"]').checked
+                    };
+                    batch.set(docRef, dataToSet);
+                    count++;
+                }
+
+                const celulaAlgoMais = row.querySelectorAll('td')[3];
+                const presencaBtnAlgoMais = celulaAlgoMais.querySelector('.bg-green-500, .bg-red-500');
+                 if (presencaBtnAlgoMais) {
+                    const status = presencaBtnAlgoMais.textContent === 'P' ? 'presente' : 'ausente';
+                    const docId = `${dataLancamento}_${id}_algo_a_mais`;
+                    const docRef = doc(db, "registros_obreiros", docId);
+                    const dataToSet = { 
+                        obreiroId: id, obreiroNome: nome, data: dataLancamento, reuniao: 'algo_a_mais', status,
+                        justificativa: celulaAlgoMais.querySelector('input[data-tipo="justificativa"]').value.trim()
+                    };
+                    batch.set(docRef, dataToSet);
+                    count++;
+                }
+            });
+            if (count === 0) { hideLoading(); return mostrarMensagem("Nenhum registro de frequência preenchido.", 'info'); }
+            try { await batch.commit(); hideLoading(); mostrarMensagem("Registros dos obreiros salvos com sucesso!", 'success'); carregarListaDeObreiros();}
+            catch (e) { hideLoading(); mostrarMensagem("Erro ao salvar os registros dos obreiros.", 'error'); }
+        }
+
+        window.gerarRelatorioObreiros = async () => {
+            const mesInput = document.getElementById('mes-relatorio-obreiros').value;
+            if(!mesInput){ return mostrarMensagem("Por favor, selecione um mês.", "warning"); }
+            showLoading("Gerando relatório...");
+            
+            const container = document.getElementById('relatorio-container-obreiros');
+            container.innerHTML = '<p class="text-center text-gray-500">Processando dados...</p>';
+
+            const obreirosSnapshot = await getDocs(query(collection(db, "obreiros"), orderBy("nome")));
+            const dadosRelatorio = new Map(obreirosSnapshot.docs.map(doc => [doc.id, { nome: doc.data().nome, p_encontro: 0, p_algo: 0, f_just: 0, f_sem: 0, jovens: 0, uniforme: 0 }]));
+
+            const q = query(collection(db, "registros_obreiros"), where("data", ">=", `${mesInput}-01`), where("data", "<=", `${mesInput}-31`));
+            const snapshot = await getDocs(q);
+            
+            snapshot.forEach(docSnap => {
+                const data = docSnap.data();
+                const obreiro = dadosRelatorio.get(data.obreiroId);
+                if(obreiro){
+                    if(data.status === 'presente') data.reuniao === 'encontro_jovem' ? obreiro.p_encontro++ : obreiro.p_algo++;
+                    else data.justificativa ? obreiro.f_just++ : obreiro.f_sem++;
+                    obreiro.jovens += (data.jovensTrazidos || 0);
+                    if(data.uniforme) obreiro.uniforme++;
+                }
+            });
+            
+            const sortedRelatorio = [...dadosRelatorio.values()].sort((a,b) => (b.p_encontro + b.p_algo) - (a.p_encontro + a.p_algo));
+            
+            if(snapshot.empty){ container.innerHTML = `<p class="text-center text-gray-500">Nenhum registro encontrado para o mês selecionado.</p>`; hideLoading(); return; }
+
+            const destaque = [...sortedRelatorio].sort((a,b) => (b.p_encontro + b.p_algo) - (a.p_encontro + a.p_algo))[0] || {nome: "N/A", p_encontro: 0, p_algo: 0};
+            const ganhadorAlmas = [...sortedRelatorio].sort((a,b) => b.jovens - a.jovens)[0] || {nome: "N/A", jovens: 0};
+            const disciplinado = [...sortedRelatorio].sort((a,b) => b.uniforme - a.uniforme)[0] || {nome: "N/A", uniforme: 0};
+            
+            container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-green-100 p-4 rounded-lg text-center shadow"><h4 class="font-bold text-green-800">Destaque do Mês</h4><p class="text-xl">${destaque.nome} (${destaque.p_encontro + destaque.p_algo} pres.)</p></div>
+                <div class="bg-blue-100 p-4 rounded-lg text-center shadow"><h4 class="font-bold text-blue-800">Maior Ganhador de Almas</h4><p class="text-xl">${ganhadorAlmas.nome} (${ganhadorAlmas.jovens} jovens)</p></div>
+                <div class="bg-yellow-100 p-4 rounded-lg text-center shadow"><h4 class="font-bold text-yellow-800">Mais Disciplinado (Uniforme)</h4><p class="text-xl">${disciplinado.nome} (${disciplinado.uniforme}x)</p></div>
+            </div>
+            <div id="relatorio-para-pdf-obreiros" class="overflow-x-auto bg-white rounded-lg shadow-md"><table class="min-w-full"><thead class="bg-secundaria text-white"><tr><th class="p-3 text-left">Obreiro</th><th class="p-2 text-center" title="Presenças (Fim de Semana)">P(FS)</th><th class="p-2 text-center" title="Presenças (Seg)">P(S)</th><th class="p-2 text-center" title="Faltas Justificadas">FJ</th><th class="p-2 text-center" title="Faltas Sem Justificativa">FS</th><th class="p-2 text-center" title="Jovens Trazidos">Jovens</th><th class="p-2 text-center" title="Uniformes (Fim de Semana)">Uniforme</th></tr></thead><tbody>
+            ${sortedRelatorio.map(d => `<tr class="border-b even:bg-gray-50" data-obreiro-nome="${d.nome}" data-obreiro-dados='${JSON.stringify(d)}'><td class="p-2 font-semibold">${d.nome}<button onclick="compartilharRelatorioPessoalWhatsApp(this)" title="Enviar para ${d.nome}" class="ml-2 float-right text-green-500 hover:text-green-700"><i class="fab fa-whatsapp"></i></button></td><td class="p-2 text-center">${d.p_encontro}</td><td class="p-2 text-center">${d.p_algo}</td><td class="p-2 text-center text-yellow-600">${d.f_just}</td><td class="p-2 text-center text-red-600">${d.f_sem}</td><td class="p-2 text-center font-bold text-principal">${d.jovens}</td><td class="p-2 text-center">${d.uniforme}</td></tr>`).join('')}
+            </tbody></table></div>
+            <div class="mt-6 flex flex-col md:flex-row gap-4">
+                <button onclick="gerarPDFCompleto('relatorio-para-pdf-obreiros', 'relatorio_obreiros.pdf')" class="w-full md:w-auto flex-1 bg-red-600 text-white font-bold py-3 px-6 rounded-lg flex items-center justify-center gap-2"><i class="fas fa-file-pdf"></i> Baixar PDF Completo</button>
+                <button onclick="compartilharResumoWhatsApp('obreiros', '${mesInput}')" class="w-full md:w-auto flex-1 bg-green-500 text-white font-bold py-3 px-6 rounded-lg flex items-center justify-center gap-2"><i class="fab fa-whatsapp"></i> Compartilhar Resumo</button>
+            </div>`;
+            hideLoading();
+        }
+
+        window.compartilharRelatorioPessoalWhatsApp = (btn) => {
+            const row = btn.closest('tr');
+            const nome = row.getAttribute('data-obreiro-nome');
+            const dados = JSON.parse(row.getAttribute('data-obreiro-dados'));
+            const mes = document.getElementById('mes-relatorio-obreiros').value;
+            const texto = `*Relatório ${tituloDoEvento} FJU - ${nome}*\n*Mês:* ${mes}\n\nOlá ${nome}, tudo bem?\nSegue seu resumo de atividades:\n\n- *Encontros (Fim de Semana):* ${dados.p_encontro} presenças\n- *Algo a Mais (Segunda):* ${dados.p_algo} presenças\n- *Faltas com Justificativa:* ${dados.f_just}\n- *Faltas sem Justificativa:* ${dados.f_sem}\n- *Jovens Trazidos:* ${dados.jovens}\n\nContinue firme nessa força! 💪`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+        }
+
+        async function renderizarGerenciarJovens() {
+            const container = document.getElementById('conteudo-gerenciarJovens');
+             container.innerHTML = `
+                <h3 class="text-3xl font-bold text-principal mb-2">Gerenciamento de Jovens</h3>
+                <p class="text-gray-600 mb-6">Cadastre, edite perfis e acompanhe a frequência dos jovens.</p>
+                 <div class="mb-6 border-b border-gray-200">
+                    <nav class="flex space-x-4">
+                        <button onclick="trocarAbaJovens('lancamento')" class="py-2 px-4 font-semibold border-b-2 border-principal text-principal">Controle e Lançamento</button>
+                        <button onclick="trocarAbaJovens('relatorio')" class="py-2 px-4 font-semibold border-b-2 border-transparent text-gray-500 hover:text-principal">Relatório Mensal</button>
+                    </nav>
+                </div>
+                <div id="aba-lancamento-jovens">
+                    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                        <h4 class="text-xl font-bold text-secundaria mb-4">Adicionar Novo Jovem</h4>
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <input type="text" id="nome-novo-jovem" placeholder="Nome completo do jovem" class="flex-grow p-2 border rounded-lg">
+                            <button id="btn-adicionar-jovem" class="bg-principal text-white px-6 py-2 rounded-lg font-semibold hover:bg-secundaria">Salvar Jovem</button>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-md mb-6">
+                        <label for="data-lancamento-jovens" class="block font-semibold mb-2 text-secundaria">Selecione a Data de Referência da Semana:</label>
+                        <input type="date" id="data-lancamento-jovens" class="p-2 rounded-lg border w-full md:w-auto">
+                    </div>
+                    <div class="overflow-x-auto bg-white rounded-lg shadow-md">
+                        <table class="min-w-full">
+                            <thead class="bg-secundaria text-white">
+                                <tr>
+                                    <th class="p-3 text-left">Jovem</th>
+                                    <th class="p-3 text-center">Encontro Jovem (Fim de Semana)</th>
+                                    <th class="p-3 text-center">Algo a Mais (Seg)</th>
+                                    <th class="p-3 text-center">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lista-lancamento-jovens"></tbody>
+                        </table>
+                    </div>
+                    <button onclick="salvarRegistrosJovens()" class="mt-6 w-full bg-principal hover:bg-secundaria text-white font-bold py-3 px-6 rounded-lg">Salvar Frequência da Semana</button>
+                </div>
+                <div id="aba-relatorio-jovens" class="hidden">
+                    <div class="bg-white p-4 rounded-lg shadow-md mb-6 flex items-center gap-4">
+                        <label for="mes-relatorio-jovens" class="font-semibold text-secundaria">Selecione o Mês:</label>
+                        <input type="month" id="mes-relatorio-jovens" class="p-2 rounded-lg border">
+                        <button onclick="gerarRelatorioJovens()" class="bg-principal text-white px-4 py-2 rounded-lg">Gerar Relatório</button>
+                    </div>
+                    <div id="relatorio-container-jovens"><p class="text-center text-gray-500">Selecione um mês para começar.</p></div>
+                </div>`;
+            document.getElementById('btn-adicionar-jovem').addEventListener('click', () => adicionarNovaPessoa('jovens'));
+            await carregarListaDeJovens();
+        }
+
+        window.trocarAbaJovens = (aba) => {
+            document.getElementById('aba-lancamento-jovens').classList.toggle('hidden', aba !== 'lancamento');
+            document.getElementById('aba-relatorio-jovens').classList.toggle('hidden', aba !== 'relatorio');
+            document.querySelector('button[onclick="trocarAbaJovens(\'lancamento\')"]').classList.toggle('border-principal', aba === 'lancamento');
+            document.querySelector('button[onclick="trocarAbaJovens(\'lancamento\')"]').classList.toggle('text-principal', aba === 'lancamento');
+            document.querySelector('button[onclick="trocarAbaJovens(\'lancamento\')"]').classList.toggle('border-transparent', aba !== 'lancamento');
+            document.querySelector('button[onclick="trocarAbaJovens(\'lancamento\')"]').classList.toggle('text-gray-500', aba !== 'lancamento');
+            document.querySelector('button[onclick="trocarAbaJovens(\'relatorio\')"]').classList.toggle('border-principal', aba === 'relatorio');
+            document.querySelector('button[onclick="trocarAbaJovens(\'relatorio\')"]').classList.toggle('text-principal', aba === 'relatorio');
+            document.querySelector('button[onclick="trocarAbaJovens(\'relatorio\')"]').classList.toggle('border-transparent', aba !== 'relatorio');
+            document.querySelector('button[onclick="trocarAbaJovens(\'relatorio\')"]').classList.toggle('text-gray-500', aba !== 'relatorio');
+        };
+
+        async function carregarListaDeJovens() {
+            const tbody = document.getElementById('lista-lancamento-jovens');
+            if(!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center p-8">Carregando jovens...</td></tr>';
+            const snapshot = await getDocs(query(collection(db, "jovens"), orderBy("nome")));
+            if(snapshot.empty) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center p-8 text-gray-500">Nenhum jovem cadastrado.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = snapshot.docs.map(doc => {
+                const jovem = { id: doc.id, ...doc.data() };
+                return `
+                <tr class="border-b even:bg-gray-50" data-id="${jovem.id}" data-nome="${jovem.nome}">
+                    <td class="p-3 font-semibold"><a href="#" onclick="abrirModalPerfil('${jovem.id}', 'jovens')" class="text-principal hover:underline">${jovem.nome}</a></td>
+                    <td class="p-3 text-center space-y-2">
+                        <div class="flex justify-center gap-2">
+                            <button onclick="marcarPresenca(this)" class="px-3 py-1 text-sm rounded-full bg-gray-200 hover:bg-green-500 hover:text-white">P</button>
+                            <button onclick="marcarPresenca(this, true)" class="px-3 py-1 text-sm rounded-full bg-gray-200 hover:bg-red-500 hover:text-white">F</button>
+                        </div>
+                        <input type="number" placeholder="Convidados" class="w-20 text-center border rounded p-1" data-tipo="convidados">
+                        <input type="text" placeholder="Justificativa" class="w-full text-center border rounded p-1 mt-1 hidden" data-tipo="justificativa">
+                    </td>
+                    <td class="p-3 text-center space-y-2">
+                        <div class="flex justify-center gap-2">
+                            <button onclick="marcarPresenca(this)" class="px-3 py-1 text-sm rounded-full bg-gray-200 hover:bg-green-500 hover:text-white">P</button>
+                            <button onclick="marcarPresenca(this, true)" class="px-3 py-1 text-sm rounded-full bg-gray-200 hover:bg-red-500 hover:text-white">F</button>
+                        </div>
+                         <input type="text" placeholder="Justificativa" class="w-full text-center border rounded p-1 mt-1 hidden" data-tipo="justificativa">
+                    </td>
+                    <td class="p-3 text-center">
+                        <button onclick="excluirPessoa('${jovem.id}', '${jovem.nome.replace(/'/g, "\\'")}', 'jovens')" class="text-red-500 hover:text-red-700 text-lg"><i class="fas fa-trash-alt"></i></button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        window.salvarRegistrosJovens = async () => {
+             const dataLancamento = document.getElementById('data-lancamento-jovens').value;
+            if (!dataLancamento) return mostrarMensagem("Por favor, selecione uma data de referência.", 'error');
+            
+            showLoading("Salvando registros...");
+            const batch = writeBatch(db);
+            let count = 0;
+            document.querySelectorAll('#lista-lancamento-jovens tr').forEach(row => {
+                const id = row.getAttribute('data-id');
+                const nome = row.getAttribute('data-nome');
+                if(!id) return;
+
+                ['encontro_jovem', 'algo_a_mais'].forEach((reuniao, index) => {
+                    const celula = row.querySelectorAll('td')[index + 1];
+                    const presencaBtn = celula.querySelector('.bg-green-500, .bg-red-500');
+                    if (presencaBtn) {
+                        const status = presencaBtn.textContent === 'P' ? 'presente' : 'ausente';
+                        const justificativa = celula.querySelector('input[data-tipo="justificativa"]').value.trim();
+                        
+                        const convidadosInput = celula.querySelector('input[data-tipo="convidados"]');
+                        const convidados = (reuniao === 'encontro_jovem' && convidadosInput) ? parseInt(convidadosInput.value) || 0 : 0;
+
+                        const docId = `${dataLancamento}_${id}_${reuniao}`;
+                        const docRef = doc(db, "registros_jovens", docId);
+                        
+                        batch.set(docRef, { 
+                            jovemId: id, 
+                            jovemNome: nome, 
+                            data: dataLancamento, 
+                            reuniao, 
+                            status, 
+                            justificativa,
+                            convidadosTrazidos: convidados
+                        });
+                        count++;
+                    }
+                });
+            });
+
+            if (count === 0) {
+                hideLoading(); return mostrarMensagem("Nenhuma frequência foi marcada.", 'info');
+            }
+
+            try {
+                await batch.commit();
+                hideLoading();
+                mostrarMensagem("Registros de frequência dos jovens salvos!", 'success');
+                carregarListaDeJovens();
+            } catch (e) {
+                hideLoading();
+                mostrarMensagem("Erro ao salvar os registros.", 'error');
+            }
+        }
+
+        window.gerarRelatorioJovens = async () => {
+            const mesInput = document.getElementById('mes-relatorio-jovens').value;
+            if(!mesInput) return mostrarMensagem("Por favor, selecione um mês.", "warning");
+            
+            showLoading("Gerando relatório dos jovens...");
+            const container = document.getElementById('relatorio-container-jovens');
+            container.innerHTML = '<p class="text-center text-gray-500">Processando dados...</p>';
+
+            const jovensSnapshot = await getDocs(query(collection(db, "jovens"), orderBy("nome")));
+            const jovensMap = new Map(jovensSnapshot.docs.map(doc => [doc.id, { nome: doc.data().nome, p_encontro: 0, p_algo: 0, faltas: 0 }]));
+
+            const q = query(collection(db, "registros_jovens"), where("data", ">=", `${mesInput}-01`), where("data", "<=", `${mesInput}-31`));
+            const registrosSnapshot = await getDocs(q);
+
+            registrosSnapshot.forEach(doc => {
+                const data = doc.data();
+                const jovem = jovensMap.get(data.jovemId);
+                if (jovem) {
+                    if (data.status === 'presente') {
+                        if (data.reuniao === 'encontro_jovem') jovem.p_encontro++;
+                        else jovem.p_algo++;
+                    } else {
+                        jovem.faltas++;
+                    }
+                }
+            });
+            
+            const sortedRelatorio = [...jovensMap.values()].sort((a, b) => (b.p_encontro + b.p_algo) - (a.p_encontro + a.p_algo));
+
+            if(registrosSnapshot.empty) {
+                container.innerHTML = `<p class="text-center text-gray-500">Nenhum registro de frequência encontrado para o mês selecionado.</p>`;
+                hideLoading();
+                return;
+            }
+
+            container.innerHTML = `
+                <div id="relatorio-jovens-para-pdf" class="overflow-x-auto bg-white rounded-lg shadow-md">
+                    <table class="min-w-full">
+                        <thead class="bg-secundaria text-white">
+                            <tr>
+                                <th class="p-3 text-left">Jovem</th>
+                                <th class="p-2 text-center" title="Presenças (Fim de Semana)">P(FS)</th>
+                                <th class="p-2 text-center" title="Presenças (Segunda)">P(Seg)</th>
+                                <th class="p-2 text-center" title="Faltas Totais">Faltas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${sortedRelatorio.map(d => `<tr class="border-b even:bg-gray-50" data-jovem-nome="${d.nome}" data-jovem-dados='${JSON.stringify(d)}'>
+                                <td class="p-2 font-semibold">${d.nome}
+                                    <button onclick="compartilharRelatorioPessoalWhatsAppJovem(this)" title="Enviar para ${d.nome}" class="ml-2 float-right text-green-500 hover:text-green-700"><i class="fab fa-whatsapp"></i></button>
+                                </td>
+                                <td class="p-2 text-center">${d.p_encontro}</td>
+                                <td class="p-2 text-center">${d.p_algo}</td>
+                                <td class="p-2 text-center text-red-600">${d.faltas}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                 <div class="mt-6 flex flex-col md:flex-row gap-4">
+                    <button onclick="gerarPDFCompleto('relatorio-jovens-para-pdf', 'relatorio_jovens.pdf')" class="w-full md:w-auto flex-1 bg-red-600 text-white font-bold py-3 px-6 rounded-lg flex items-center justify-center gap-2">
+                        <i class="fas fa-file-pdf"></i> Baixar PDF Completo
+                    </button>
+                     <button onclick="compartilharResumoWhatsApp('jovens', '${mesInput}')" class="w-full md:w-auto flex-1 bg-green-500 text-white font-bold py-3 px-6 rounded-lg flex items-center justify-center gap-2"><i class="fab fa-whatsapp"></i> Compartilhar Resumo</button>
+                </div>
+            `;
+            hideLoading();
+        }
+
+        window.compartilharRelatorioPessoalWhatsAppJovem = (btn) => {
+            const row = btn.closest('tr');
+            const nome = row.getAttribute('data-jovem-nome');
+            const dados = JSON.parse(row.getAttribute('data-jovem-dados'));
+            const mes = document.getElementById('mes-relatorio-jovens').value;
+            const texto = `*Relatório de Frequência FJU - ${nome}*\n*Mês:* ${mes}\n\nOlá ${nome}, tudo bem?\nSegue seu resumo de frequência:\n\n- *Encontros (Fim de Semana):* ${dados.p_encontro} presenças\n- *Algo a Mais (Segunda):* ${dados.p_algo} presenças\n- *Total de Faltas:* ${dados.faltas}\n\nSua presença é muito importante. Continue firme! 💪`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+        }
+
+        async function renderizarGerenciarSemanas() {
+            const container = document.getElementById('conteudo-gerenciarSemanas');
+             container.innerHTML = `
+                <h3 class="text-3xl font-bold text-principal mb-6">Gerenciamento de Semanas</h3>
+                <p class="text-gray-600 mb-6">Defina missões, acompanhe o histórico e finalize cada etapa.</p>
+                <div class="p-4 border rounded-lg bg-gray-50">
+                    <h4 class="text-xl font-bold text-secundaria mb-4">Histórico e Controle</h4>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-sm border-collapse" id="tabelaHistoricoSemanas">
+                            <thead class="bg-gray-200">
+                                <tr>
+                                    <th class="border-b-2 px-3 py-2 text-left">Semana</th>
+                                    <th class="border-b-2 px-3 py-2 text-left">Missão</th>
+                                    <th class="border-b-2 px-3 py-2 text-left">Ranking Final</th>
+                                    <th class="border-b-2 px-3 py-2 text-center">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="corpoHistoricoSemanas"></tbody>
+                        </table>
+                    </div>
+                </div>`;
+            await carregarHistoricoSemanas();
+        }
+        
+        async function carregarHistoricoSemanas() {
+            const corpoTabela = document.getElementById('corpoHistoricoSemanas');
+            if (!corpoTabela) return;
+            showLoading("Carregando histórico...");
+            corpoTabela.innerHTML = '<tr><td colspan="4" class="p-4 text-center">Carregando...</td></tr>';
+            try {
+                const cfgSnap = await getDoc(doc(db, "config", "semanas"));
+                const semanaAtual = cfgSnap.exists() ? cfgSnap.data().semanaAtual || 1 : 1;
+                const totalSemanas = rallyConfig.semanas || 5;
+                
+                const promises = [];
+                for (let i = 1; i <= totalSemanas; i++) {
+                    promises.push(getDoc(doc(db, "missoes", `semana${i}`)));
+                    promises.push(getDoc(doc(db, "historico_semanas", `semana${i}`)));
+                }
+                const results = await Promise.all(promises);
+                
+                let semanasData = [];
+                for (let i = 0; i < totalSemanas; i++) {
+                    const missaoSnap = results[i * 2];
+                    const histSnap = results[i * 2 + 1];
+                    const semanaNum = i + 1;
+                    let missaoTexto = missaoSnap.exists() && missaoSnap.data().texto ? missaoSnap.data().texto : (MISSOES_PADRAO[semanaNum] || '');
+                    semanasData.push({ 
+                        num: semanaNum, 
+                        missao: missaoTexto, 
+                        finalizada: histSnap.exists(), 
+                        ranking: histSnap.exists() ? histSnap.data().ranking || [] : [] 
+                    });
+                }
+                
+                corpoTabela.innerHTML = '';
+                semanasData.forEach(semana => {
+                    const tr = document.createElement('tr');
+                    const isAtual = semana.num === semanaAtual;
+                    const isPassada = semana.num < semanaAtual;
+
+                    const badge = isAtual ? '<span class="ml-2 px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold">Atual</span>' : '';
+                    
+                    let missaoDisplayHTML;
+                    if (semana.missao) {
+                        let missaoCurta = semana.missao;
+                        if (missaoCurta.length > 80) {
+                            missaoCurta = missaoCurta.substring(0, 80) + '...';
+                        }
+                        missaoDisplayHTML = `<p class="whitespace-pre-wrap text-gray-700">${missaoCurta}</p>`;
+                    } else {
+                        missaoDisplayHTML = `<p class="text-gray-400 italic">- Nenhuma missão definida -</p>`;
+                    }
+
+                    const tdMissao = `
+                        <div id="btn-edit-missao-${semana.num}" class="cursor-pointer hover:bg-gray-100 p-2 rounded-md transition-colors">
+                            ${missaoDisplayHTML}
+                            <span class="text-xs text-principal font-semibold mt-1 block">Clique para ver ou editar</span>
+                        </div>
+                    `;
+
+                    const tdRanking = semana.finalizada ? semana.ranking.map((r, idx) => `${idx + 1}º ${r.nome} (${r.pontos} pts)`).join('<br>') : '<span class="text-gray-400">Pendente</span>';
+                    
+                    let tdStatus;
+                    if (semana.finalizada) {
+                        tdStatus = `
+                            <div class="flex flex-col items-center gap-2">
+                                <span class="px-2 py-1 rounded-full bg-green-100 text-green-800 text-sm font-semibold">Finalizada</span>
+                                <button class="px-3 py-1 text-xs rounded-md text-white bg-yellow-500 hover:bg-yellow-600" onclick="confirmarFinalizacao(${semana.num})">
+                                    <i class="fas fa-sync-alt mr-1"></i>Corrigir
+                                </button>
+                            </div>
+                        `;
+                    } else if (isAtual) {
+                        tdStatus = `<button class="px-3 py-1 rounded-md text-white bg-destaque hover:bg-red-700" onclick="confirmarFinalizacao(${semana.num})"><i class="fas fa-flag-checkered mr-1"></i> Finalizar Semana</button>`;
+                    } else if (isPassada) {
+                        tdStatus = '<span class="px-2 py-1 rounded-full bg-red-100 text-red-800 text-sm font-semibold">Não Finalizada</span>';
+                    } else {
+                        tdStatus = '<span class="px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 text-sm font-semibold">Aguardando</span>';
+                    }
+
+                    tr.className = isAtual ? 'bg-blue-50' : (isPassada && !semana.finalizada ? 'bg-red-50' : 'bg-white');
+                    tr.innerHTML = `<td class="border px-3 py-2 font-bold align-top">Semana ${semana.num} ${badge}</td><td class="border px-3 py-2 align-top">${tdMissao}</td><td class="border px-3 py-2 align-top">${tdRanking}</td><td class="border px-3 py-2 text-center align-middle">${tdStatus}</td>`;
+                    corpoTabela.appendChild(tr);
+                });
+
+                semanasData.forEach(semana => {
+                    const btn = document.getElementById(`btn-edit-missao-${semana.num}`);
+                    if (btn) {
+                        btn.addEventListener('click', () => abrirModalEditarMissao(semana.num, semana.missao));
+                    }
+                });
+
+                hideLoading();
+            } catch (e) {
+                hideLoading();
+                console.error("Erro ao carregar semanas:", e);
+                corpoTabela.innerHTML = '<tr><td colspan="4" class="text-center p-4 text-red-500">Erro ao carregar.</td></tr>';
+            }
+        }
+        
+        window.abrirModalEditarMissao = (numSemana, missaoAtual = '') => {
+            const modalTitle = `<h3 class="text-2xl font-bold text-secundaria mb-4">Definir Missão - Semana ${numSemana}</h3>`;
+            const modalInstructions = `<p class="text-sm bg-blue-50 p-2 rounded-lg border-l-4 border-principal text-blue-800 mb-4"><strong>Dica:</strong> Para criar uma tarefa pontuável, inicie a linha com <code class="font-bold">pontos:</code>. <br>Exemplo: <code class="font-bold">150: Trazer 5 jovens.</code></p>`;
+            const modalTextarea = `<textarea id="novaMissaoSemana" class="w-full h-64 p-2 border rounded-lg">${missaoAtual}</textarea>`;
+            const modalContent = modalTitle + modalInstructions + modalTextarea;
+            
+            mostrarMensagem(modalContent, 'info', true, async () => {
+                const novaMissao = document.getElementById('novaMissaoSemana').value;
+                showLoading("Salvando missão...");
+                try {
+                    await setDoc(doc(db, "missoes", `semana${numSemana}`), { texto: novaMissao }, { merge: true });
+                    hideLoading();
+                    mostrarMensagem("Missão atualizada!", "success");
+                    await carregarHistoricoSemanas();
+                } catch (e) { hideLoading(); mostrarMensagem("Erro ao atualizar a missão.", "error"); }
+            });
+        }
+        
+        window.confirmarFinalizacao = (numSemana) => {
+             mostrarMensagem(`Tem certeza que deseja (re)finalizar a Semana ${numSemana}? Esta ação irá registrar (ou sobrescrever) o ranking atual.`, 'warning', true, () => finalizarSemana(numSemana));
+        }
+
+        async function finalizarSemana(numSemana) {
+            showLoading("Finalizando semana...");
+            try {
+                const tribosSnapshot = await getDocs(query(collection(db, "tribos"), orderBy("pontos", "desc")));
+                const ranking = tribosSnapshot.docs
+                    .filter(d => tribosInfo[d.id])
+                    .map(d => ({ id: d.id, nome: tribosInfo[d.id].nome, pontos: d.data().pontos }));
+                
+                const batch = writeBatch(db);
+                const histRef = doc(db, "historico_semanas", `semana${numSemana}`);
+                batch.set(histRef, { ranking, dataFinalizacao: new Date() });
+
+                const configRef = doc(db, "config", "semanas");
+                const totalSemanas = rallyConfig.semanas || 5;
+
+                const cfgSnap = await getDoc(configRef);
+                const semanaAtual = cfgSnap.exists() ? cfgSnap.data().semanaAtual || 1 : 1;
+
+                if (numSemana < totalSemanas && numSemana === semanaAtual) {
+                    batch.update(configRef, { semanaAtual: numSemana + 1 });
+                } else if (numSemana === totalSemanas && numSemana === semanaAtual) {
+                     mostrarMensagem("Esta é a última semana! Considere finalizar o Rally na aba de Configurações.", "info");
+                }
+                
+                await batch.commit();
+                hideLoading();
+                mostrarMensagem(`Semana ${numSemana} (re)finalizada com sucesso!`, 'success');
+                await carregarHistoricoSemanas();
+            } catch (e) {
+                hideLoading();
+                console.error("Erro ao finalizar semana:", e);
+                mostrarMensagem("Erro ao finalizar a semana.", "error");
+            }
+        }
+        
+        async function renderizarConfiguracoes() {
+            const container = document.getElementById('conteudo-configuracoes');
+            container.innerHTML = `
+                <h3 class="text-3xl font-bold text-principal mb-6">Configurações e Gerenciamento do Rally</h3>
+                <p class="text-gray-600 mb-8">Use os botões abaixo para gerenciar o ciclo de vida do evento.</p>
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-xl shadow-lg border">
+                        <h4 class="text-xl font-bold text-secundaria mb-2">Configurar Rally</h4>
+                        <p class="text-gray-700 mb-4">Edite o título, tribos, cores e duração do rally atual ou prepare um novo.</p>
+                        <button onclick="abrirModalConfiguracoesRally()" class="w-full bg-principal hover:bg-secundaria text-white font-bold py-3 px-6 rounded-lg text-lg">
+                            <i class="fas fa-edit mr-2"></i> Abrir Configurações
+                        </button>
+                    </div>
+
+                    <div class="bg-yellow-50 p-6 rounded-lg border-l-4 border-yellow-500">
+                        <h4 class="text-xl font-bold text-yellow-700 mb-2">Área de Manutenção</h4>
+                        <p class="text-gray-700 mb-4">Estas ações afetam os dados atuais do rally. Use com cuidado.</p>
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <button onclick="reiniciarRally()" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg"><i class="fas fa-sync-alt mr-2"></i>Reiniciar Rally</button>
+                            <button onclick="finalizarRally()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"><i class="fas fa-flag-checkered mr-2"></i>Finalizar Rally</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        window.abrirModalConfiguracoesRally = async () => {
+            modalConfigRally.classList.remove('hidden');
+            const container = document.getElementById('conteudo-modal-config-rally');
+            container.innerHTML = `<p class="text-center">Carregando configurações...</p>`;
+            
+            const configAtual = rallyConfig;
+            const tribosAtivasAtuais = Object.keys(configAtual.tribosAtivas || {});
+
+            let checkboxesTribosHTML = '<p class="col-span-full text-center text-gray-500">Carregando tribos...</p>';
+            try {
+                const todasTribosSnapshot = await getDocs(query(collection(db, "todas_as_tribos"), orderBy("nome")));
+                if (!todasTribosSnapshot.empty) {
+                    checkboxesTribosHTML = '';
+                    todasTribosSnapshot.forEach(doc => {
+                        const tribo = { id: doc.id, ...doc.data() };
+                        const isChecked = tribosAtivasAtuais.includes(tribo.id) ? 'checked' : '';
+                        checkboxesTribosHTML += `
+                            <label class="flex items-center p-3 bg-gray-50 rounded-lg border hover:bg-gray-100 transition-all cursor-pointer">
+                                <input type="checkbox" value="${tribo.id}" class="h-5 w-5 rounded text-principal focus:ring-principal" data-info='${JSON.stringify(tribo)}' ${isChecked}>
+                                <img src="${tribo.img}" class="w-8 h-8 rounded-full object-cover mx-3">
+                                <span class="font-semibold text-lg">${tribo.nome}</span>
+                            </label>
+                        `;
+                    });
+                } else {
+                    checkboxesTribosHTML = '<p class="col-span-full text-center text-red-500">Nenhuma tribo encontrada. Cadastre-as no Firestore.</p>';
+                }
+            } catch (e) {
+                checkboxesTribosHTML = '<p class="col-span-full text-center text-red-500">Erro ao carregar a lista de tribos.</p>';
+            }
+
+            const temas = [
+                { id: 'padrao', nome: 'Padrão FJU (Azul/Vermelho)', cores: { principal: '#00539f', secundaria: '#003a70', destaque: '#d52b1e' } },
+                { id: 'ouro', nome: 'Ouro e Preto', cores: { principal: '#E1B12C', secundaria: '#2C3A47', destaque: '#F79F1F' } },
+                { id: 'esmeralda', nome: 'Verde Esmeralda', cores: { principal: '#079992', secundaria: '#056660', destaque: '#38ada9' } },
+                { id: 'rubi', nome: 'Vinho Rubi', cores: { principal: '#b71540', secundaria: '#63001c', destaque: '#ff3f70' } },
+                { id: 'royal', nome: 'Roxo Royal', cores: { principal: '#8e44ad', secundaria: '#572769', destaque: '#c47add' } },
+            ];
+
+            const temaAtualId = configAtual.tema ? temas.find(t => t.cores.principal === configAtual.tema.principal)?.id || 'padrao' : 'padrao';
+
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <div>
+                        <label class="block font-bold text-secundaria mb-1">Título do Evento</label>
+                        <input type="text" id="config-titulo-evento" class="w-full p-2 border rounded-lg text-lg" value="${configAtual.tituloEvento || ''}" placeholder="Ex: Rally FJU 2025">
+                    </div>
+                     <div>
+                        <label class="block font-bold text-secundaria mb-1">Subtítulo do Evento</label>
+                        <input type="text" id="config-subtitulo-evento" class="w-full p-2 border rounded-lg" value="${configAtual.subtituloEvento || ''}" placeholder="Ex: Só os valentes fazem a diferença!">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                             <label class="block font-bold text-secundaria mb-1">Semanas de Duração</label>
+                            <input type="number" id="config-semanas" class="w-full p-2 border rounded-lg" value="${configAtual.semanas || 5}" min="1" max="12">
+                        </div>
+                        <div>
+                             <label class="block font-bold text-secundaria mb-1">Tema de Cores</label>
+                             <select id="config-tema" class="w-full p-2 border rounded-lg bg-white">
+                                ${temas.map(t => `<option value='${JSON.stringify(t.cores)}' ${t.id === temaAtualId ? 'selected' : ''}>${t.nome}</option>`).join('')}
+                             </select>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-bold text-secundaria mt-4 mb-2">Selecione as Tribos Participantes</h4>
+                        <div id="container-selecao-tribos" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-64 overflow-y-auto p-2 bg-gray-100 rounded">
+                            ${checkboxesTribosHTML}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.salvarConfiguracoes = async () => {
+            const novoTitulo = document.getElementById('config-titulo-evento').value.trim();
+            const novoSubtitulo = document.getElementById('config-subtitulo-evento').value.trim();
+            const novasSemanas = parseInt(document.getElementById('config-semanas').value) || 5;
+            const novoTema = JSON.parse(document.getElementById('config-tema').value);
+
+            if (!novoTitulo) return mostrarMensagem("O título do evento não pode ficar em branco.", "warning");
+            
+            const novasTribosAtivas = {};
+            const checkboxes = document.querySelectorAll('#container-selecao-tribos input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) return mostrarMensagem("Selecione pelo menos uma tribo.", "warning");
+
+            checkboxes.forEach(cb => {
+                const info = JSON.parse(cb.dataset.info);
+                novasTribosAtivas[info.id] = { nome: info.nome, img: info.img };
+            });
+
+            const newConfig = {
+                tituloEvento: novoTitulo,
+                subtituloEvento: novoSubtitulo,
+                semanas: novasSemanas,
+                tema: novoTema,
+                tribosAtivas: novasTribosAtivas,
+                finalizado: false
+            };
+
+            showLoading("Salvando configurações...");
+            try {
+                await setDoc(doc(db, "configuracao", "geral"), newConfig);
+                hideLoading();
+                modalConfigRally.classList.add('hidden');
+                
+                mostrarMensagem(
+                    "Configurações salvas! Deseja apagar todos os dados de pontuação e histórico para começar um novo rally com esta configuração?", 
+                    "warning", 
+                    true, 
+                    async () => {
+                        await executarResetCompleto(true);
+                    },
+                    () => {
+                        mostrarMensagem("Configurações aplicadas. A página será recarregada.", "success");
+                        setTimeout(() => window.location.reload(), 2000);
+                    }
+                );
+            } catch (e) {
+                hideLoading();
+                console.error("Erro ao salvar configurações:", e);
+                mostrarMensagem("Ocorreu um erro ao salvar as configurações.", "error");
+            }
+        }
+        
+        async function executarResetCompleto(reloadPage = true) {
+            showLoading("Reiniciando o rally...");
+            try {
+                const batch = writeBatch(db);
+                
+                const tribosSnap = await getDocs(collection(db, "tribos"));
+                tribosSnap.forEach(d => batch.update(d.ref, { pontos: 0 }));
+
+                const collectionsToDelete = ["historico_pontos", "historico_semanas", "registros_obreiros", "registros_jovens", "missoes"];
+                for (const collName of collectionsToDelete) {
+                    const snapshot = await getDocs(collection(db, collName));
+                    snapshot.forEach(doc => batch.delete(doc.ref));
+                }
+
+                await setDoc(doc(db, "config", "semanas"), { semanaAtual: 1 });
+                await batch.commit();
+
+                hideLoading();
+                if(reloadPage){
+                    mostrarMensagem("Rally reiniciado com sucesso! A página será recarregada.", "success");
+                    setTimeout(() => location.reload(), 2000);
+                }
+            } catch (e) {
+                hideLoading();
+                console.error("Erro ao reiniciar o rally:", e);
+                mostrarMensagem("Ocorreu um erro grave ao reiniciar o rally.", "error");
+            }
+        }
+
+        window.reiniciarRally = () => {
+             mostrarMensagem("Tem certeza que deseja reiniciar o rally? TODAS as pontuações, históricos e missões editadas serão apagados para restaurar o padrão.", 'warning', true, () => executarResetCompleto(true));
+        }
+
+        window.finalizarRally = () => {
+            mostrarMensagem("Tem certeza que deseja finalizar o rally? O ranking será permanentemente exibido e o painel será bloqueado até que um novo rally seja configurado.", 'warning', true, 
+            async () => {
+                showLoading("Finalizando...");
+                try {
+                    const tribosSnapshot = await getDocs(query(collection(db, "tribos"), orderBy("pontos", "desc")));
+                    const rankingFinal = tribosSnapshot.docs
+                        .filter(d => tribosInfo[d.id])
+                        .map(d => ({ 
+                            id: d.id, 
+                            nome: tribosInfo[d.id].nome, 
+                            img: tribosInfo[d.id].img, 
+                            pontos: d.data().pontos 
+                        }));
+                    
+                    await updateDoc(doc(db, "configuracao", "geral"), {
+                        finalizado: true,
+                        rankingFinal: rankingFinal,
+                        dataFinalizacao: new Date()
+                    });
+
+                    hideLoading();
+                    mostrarMensagem("Rally finalizado com sucesso! A página será recarregada para exibir os campeões.", "success");
+                    setTimeout(() => location.reload(), 2500);
+                } catch(e) {
+                     hideLoading();
+                     console.error("Erro ao finalizar:", e);
+                     mostrarMensagem("Erro ao finalizar o rally.", "error");
+                }
+            });
+        }
+
+        window.gerarPDFCompleto = async (elementId, fileName) => {
+            const { jsPDF } = window.jspdf;
+            const relatorioEl = document.getElementById(elementId);
+            if (!relatorioEl) {
+                mostrarMensagem("Elemento do relatório não encontrado.", 'error');
+                return;
+            }
+            showLoading('Gerando PDF Completo...');
+            const canvas = await html2canvas(relatorioEl);
+            hideLoading();
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 10, pdfWidth - 20, 0);
+            pdf.save(fileName);
+        }
+
+        function renderizarRelatorioGeral() {
+            const container = document.getElementById('conteudo-relatorioGeral');
+            container.innerHTML = `
+                <h3 class="text-3xl font-bold text-principal mb-2">Relatório do Encontro Jovem</h3>
+                <p class="text-gray-600 mb-6">Selecione a data do Encontro Jovem (Sábado ou Domingo) para gerar um resumo completo e compartilhar.</p>
+                
+                <div class="bg-white p-4 rounded-lg shadow-md mb-6 flex flex-col md:flex-row items-center gap-4">
+                    <label for="data-relatorio-geral" class="font-semibold text-secundaria whitespace-nowrap">Selecione a Data:</label>
+                    <input type="date" id="data-relatorio-geral" class="p-2 rounded-lg border w-full md:w-auto">
+                    <button id="btn-gerar-relatorio" class="w-full md:w-auto bg-principal text-white px-6 py-2 rounded-lg font-semibold hover:bg-secundaria">
+                        <i class="fas fa-sync-alt mr-2"></i>Gerar Relatório
+                    </button>
+                </div>
+        
+                <div id="container-resultado-relatorio" class="bg-gray-50 p-6 rounded-lg shadow-inner hidden"></div>
+            `;
+            document.getElementById('btn-gerar-relatorio').addEventListener('click', gerarRelatorioEncontroJovem);
+        }
+        
+        async function gerarRelatorioEncontroJovem() {
+            const dataInput = document.getElementById('data-relatorio-geral');
+            const dataSelecionada = dataInput.value;
+            if (!dataSelecionada) {
+                return mostrarMensagem("Por favor, selecione uma data.", 'warning');
+            }
+            const dateObj = new Date(dataSelecionada + 'T12:00:00');
+            if (dateObj.getDay() !== 0 && dateObj.getDay() !== 6) {
+                return mostrarMensagem("Data inválida. O Encontro Jovem acontece aos Sábados ou Domingos. Por favor, selecione um dia de fim de semana.", 'warning');
+            }
+        
+            showLoading("Gerando relatório...");
+            const container = document.getElementById('container-resultado-relatorio');
+            container.innerHTML = '<p>Processando dados...</p>';
+            container.classList.remove('hidden');
+        
+            try {
+                const qObreiros = query(collection(db, "registros_obreiros"), where("data", "==", dataSelecionada), where("reuniao", "==", "encontro_jovem"));
+                const qJovens = query(collection(db, "registros_jovens"), where("data", "==", dataSelecionada), where("reuniao", "==", "encontro_jovem"));
+        
+                const [obreirosSnapshot, jovensSnapshot] = await Promise.all([getDocs(qObreiros), getDocs(qJovens)]);
+        
+                let obreirosPresentes = 0;
+                let totalJovensConvidadosPorObreiros = 0;
+                const obreirosAusentes = [];
+                const obreirosComConvidados = [];
+        
+                obreirosSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.status === 'presente') {
+                        obreirosPresentes++;
+                        const convidados = data.jovensTrazidos || 0;
+                        if (convidados > 0) {
+                            totalJovensConvidadosPorObreiros += convidados;
+                            obreirosComConvidados.push(`${data.obreiroNome}: ${convidados}`);
+                        }
+                    } else {
+                        const justificativa = data.justificativa ? `(Justificativa: ${data.justificativa})` : '(Sem justificativa)';
+                        obreirosAusentes.push(`${data.obreiroNome} ${justificativa}`);
+                    }
+                });
+        
+                let jovensPresentes = 0;
+                let totalJovensConvidadosPorJovens = 0;
+                const jovensComConvidados = [];
+
+                jovensSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.status === 'presente') {
+                        jovensPresentes++;
+                        const convidados = data.convidadosTrazidos || 0;
+                        if (convidados > 0) {
+                            totalJovensConvidadosPorJovens += convidados;
+                            jovensComConvidados.push(`${data.jovemNome}: ${convidados}`);
+                        }
+                    }
+                });
+                
+                const totalDeConvidados = totalJovensConvidadosPorObreiros + totalJovensConvidadosPorJovens;
+                const totalDePresentes = jovensPresentes + obreirosPresentes + totalDeConvidados;
+
+                const listaJovensConvidados = jovensComConvidados.length > 0 ? '- ' + jovensComConvidados.join('\n- ') : 'Nenhum jovem da FJU trouxe convidados.';
+                const listaObreirosComConvidados = obreirosComConvidados.length > 0 ? '- ' + obreirosComConvidados.join('\n- ') : 'Nenhum obreiro trouxe convidados.';
+                const listaObreirosAusentes = obreirosAusentes.length > 0 ? '- ' + obreirosAusentes.join('\n- ') : 'Nenhuma ausência registrada.';
+        
+                const relatorioTexto = `*RELATÓRIO FJU - ENCONTRO JOVEM*\n*Data:* ${new Date(dataSelecionada + 'T12:00:00').toLocaleDateString('pt-BR')}\n\n*Resumo:*\n- Qnt. de Jovens: ${jovensPresentes}\n- Obreiros Presentes: ${obreirosPresentes}\n- Jovens convidado: ${totalDeConvidados}\n\n*TOTAL DE PRESENTES NO ENCONTRO:* ${totalDePresentes}\n\n*Jovem que convidou alguém:*\n${listaJovensConvidados}\n\n*Obreiros que trouxeram alguém:*\n${listaObreirosComConvidados}\n\n*Obreiros Ausentes e justificativa:*\n${listaObreirosAusentes}`;
+        
+                container.innerHTML = `
+                    <h4 class="text-2xl font-bold text-secundaria mb-4 border-b pb-2">Resultado do Relatório</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-yellow-100 text-center p-3 rounded-lg"><p class="text-sm text-yellow-800">Qnt. Jovens FJU</p><p class="text-2xl font-bold">${jovensPresentes}</p></div>
+                        <div class="bg-blue-100 text-center p-3 rounded-lg"><p class="text-sm text-blue-800">Obreiros Presentes</p><p class="text-2xl font-bold">${obreirosPresentes}</p></div>
+                        <div class="bg-green-100 text-center p-3 rounded-lg"><p class="text-sm text-green-800">Jovens Convidados</p><p class="text-2xl font-bold">${totalDeConvidados}</p></div>
+                        <div class="bg-principal text-white text-center p-3 rounded-lg"><p class="text-sm">TOTAL GERAL</p><p class="text-2xl font-bold">${totalDePresentes}</p></div>
+                    </div>
+                    <div class="space-y-4 text-sm">
+                        <div>
+                           <h5 class="font-bold text-secundaria">Jovens que convidaram alguém:</h5>
+                           <p class="text-gray-700 whitespace-pre-wrap">${jovensComConvidados.length > 0 ? jovensComConvidados.join('\n') : 'Nenhum'}</p>
+                       </div>
+                        <div>
+                           <h5 class="font-bold text-secundaria">Obreiros que trouxeram alguém:</h5>
+                           <p class="text-gray-700 whitespace-pre-wrap">${obreirosComConvidados.length > 0 ? obreirosComConvidados.join('\n') : 'Nenhum'}</p>
+                       </div>
+                        <div>
+                           <h5 class="font-bold text-secundaria">Obreiros Ausentes (${obreirosAusentes.length}):</h5>
+                           <p class="text-gray-700 whitespace-pre-wrap">${obreirosAusentes.length > 0 ? obreirosAusentes.join('\n') : 'Nenhum'}</p>
+                       </div>
+                   </div>
+                    <div class="border-t pt-4 mt-6">
+                        <h5 class="text-xl font-bold text-secundaria mb-3">Compartilhar Relatório</h5>
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <button onclick="enviarRelatorioWhatsApp('5584981744675', \`${relatorioTexto.replace(/`/g, '\\`')}\`)" class="flex-1 bg-green-500 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-green-600"><i class="fab fa-whatsapp"></i> Enviar para Pastor</button>
+                            <button onclick="enviarRelatorioWhatsApp('5583987785964', \`${relatorioTexto.replace(/`/g, '\\`')}\`)" class="flex-1 bg-green-500 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-green-600"><i class="fab fa-whatsapp"></i> Enviar para Esposa</button>
+                        </div>
+                        <div class="mt-4 flex flex-col md:flex-row gap-2 items-center">
+                            <input type="text" id="numero-whatsapp-personalizado" placeholder="Ex: 5521999998888" class="flex-grow p-2 border rounded-lg w-full md:w-auto">
+                            <button onclick="enviarRelatorioWhatsApp(document.getElementById('numero-whatsapp-personalizado').value, \`${relatorioTexto.replace(/`/g, '\\`')}\`)" class="w-full md:w-auto bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-700">Enviar para número</button>
+                        </div>
+                    </div>
+                `;
+                hideLoading();
+        
+            } catch (e) {
+                console.error("Erro ao gerar relatório:", e);
+                hideLoading();
+                container.innerHTML = '<p class="text-red-500">Ocorreu um erro ao buscar os dados. Tente novamente.</p>';
+            }
+        }
+        
+        window.enviarRelatorioWhatsApp = (numero, texto) => {
+            const numeroLimpo = numero.replace(/\D/g, '');
+            if (numeroLimpo.length < 10) {
+                return mostrarMensagem("Número de WhatsApp inválido. Inclua o DDI (55) e o DDD.", 'warning');
+            }
+            const textoCodificado = encodeURIComponent(texto);
+            window.open(`https://wa.me/${numeroLimpo}?text=${textoCodificado}`, '_blank');
+        }
+
+        window.compartilharResumoWhatsApp = (tipo, mes) => {
+            let textoResumo = `*Resumo Mensal - ${tipo.charAt(0).toUpperCase() + tipo.slice(1)} - ${mes}*\n\n`;
+            let tableId = (tipo === 'obreiros') ? 'relatorio-para-pdf-obreiros' : 'relatorio-jovens-para-pdf';
+            const tabela = document.getElementById(tableId);
+            if (!tabela) return;
+        
+            tabela.querySelectorAll('tbody tr').forEach(row => {
+                const nome = row.cells[0].innerText.trim();
+                if(tipo === 'obreiros') {
+                    const dados = JSON.parse(row.getAttribute('data-obreiro-dados'));
+                    textoResumo += `*${nome}*:\n- Presenças: ${dados.p_encontro + dados.p_algo}\n- Jovens Trazidos: ${dados.jovens}\n- Faltas: ${dados.f_just + dados.f_sem}\n\n`;
+                } else {
+                    const dados = JSON.parse(row.getAttribute('data-jovem-dados'));
+                    textoResumo += `*${nome}*:\n- Presenças: ${dados.p_encontro + dados.p_algo}\n- Faltas: ${dados.faltas}\n\n`;
+                }
+            });
+        
+            window.open(`https://wa.me/?text=${encodeURIComponent(textoResumo)}`, '_blank');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            paginaInicialDiv = document.getElementById('pagina-inicial');
+            loginPanelDiv = document.getElementById('login-panel');
+            painelAssistenteDiv = document.getElementById('painel-assistente');
+            modalMensagem = document.getElementById('modal-mensagem');
+            modalConteudo = document.getElementById('modal-conteudo');
+            loadingOverlay = document.getElementById('loading-overlay');
+            modalMissoes = document.getElementById('modal-missoes');
+            modalPerfil = document.getElementById('modal-perfil');
+            modalConfigRally = document.getElementById('modal-config-rally');
+
+            document.getElementById('btn-ver-missao').addEventListener('click', abrirModalDeMissoes);
+            document.getElementById('btn-fechar-modal-missoes').addEventListener('click', () => modalMissoes.classList.add('hidden'));
+            document.getElementById('btn-fechar-modal-perfil').addEventListener('click', () => modalPerfil.classList.add('hidden'));
+            document.getElementById('btn-fechar-modal-config').addEventListener('click', () => modalConfigRally.classList.add('hidden'));
+
+            showLoading();
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                storage = getStorage(app);
+                
+                onAuthStateChanged(auth, async (user) => {
+                    await carregarConfiguracoesDoEvento();
+                    hideLoading();
+                    
+                    if (user && user.email === 'assistente@rally.com') {
+                        isAdmin = true;
+                        if(rallyConfig.finalizado){
+                             mostrarPagina('painel-assistente');
+                             document.getElementById('sidebar-nav').innerHTML = `
+                                <div class='p-4 text-center bg-secundaria rounded-lg'>
+                                    <h3 class="font-bold text-lg text-white">Rally Finalizado!</h3>
+                                    <p class="text-xs text-white/70">O pódio está na página inicial.</p>
+                                </div>
+                                <button class="text-left py-3 px-4 rounded-lg hover:bg-secundaria flex items-center gap-3" id="tab-painel-configuracoes"><i class="fas fa-cogs w-5"></i> Configurar Novo Rally</button>
+                                <div class="pt-4 mt-4 border-t border-white/20">
+                                    <button class="w-full text-left py-3 px-4 rounded-lg bg-destaque hover:bg-red-700 flex items-center gap-3" id="btn-logout"><i class="fas fa-sign-out-alt w-5"></i> Sair</button>
+                                </div>`;
+                             document.getElementById('conteudo-painel').innerHTML = `
+                                <div class="text-center p-8 flex flex-col items-center justify-center h-full">
+                                    <i class="fas fa-flag-checkered text-6xl text-principal mb-4"></i>
+                                    <h2 class="text-3xl font-bold text-secundaria">O Rally foi Concluído!</h2>
+                                    <p class="text-gray-600 mt-2 mb-6">Os resultados finais já estão sendo exibidos na página inicial.</p>
+                                    <button id="btn-ir-config" class="bg-principal text-white font-bold py-3 px-6 rounded-lg">
+                                        <i class="fas fa-cogs mr-2"></i>Ir para Configurações
+                                    </button>
+                                </div>
+                             `;
+                             
+                             document.getElementById('tab-painel-configuracoes').addEventListener('click', () => carregarConteudoPainel('configuracoes'));
+                             document.getElementById('btn-ir-config').addEventListener('click', () => carregarConteudoPainel('configuracoes'));
+                             document.getElementById('btn-logout').addEventListener('click', async () => { await signOut(auth); window.location.reload(); });
+                             
+                        } else {
+                            mostrarPagina('painel-assistente');
+                            await carregarConteudoPainel('visaoGeral');
+                            setupFirestoreListeners();
+                        }
+                    } else {
+                        isAdmin = false;
+                        mostrarPagina('pagina-inicial');
+                        if (rallyConfig.finalizado){
+                            renderizarRankingFinalAnimado();
+                        } else {
+                            setupFirestoreListeners();
+                        }
+                    }
+                });
+            } catch(e) { 
+                console.error("Erro Crítico de Inicialização do Firebase:", e); 
+                hideLoading();
+                mostrarMensagem("Erro Crítico de Inicialização. Verifique o console (F12).", "error"); 
+            }
+            
+            document.getElementById('btn-login').addEventListener('click', () => mostrarPagina('login-panel'));
+            document.getElementById('form-login').addEventListener('submit', async (e) => { 
+                e.preventDefault(); 
+                showLoading('Entrando...'); 
+                try { 
+                    await signInWithEmailAndPassword(auth, document.getElementById('email-admin').value, document.getElementById('senha-admin').value); 
+                } catch (error) { 
+                    hideLoading(); 
+                    mostrarMensagem("E-mail ou senha incorretos.", 'error'); 
+                } 
+            });
+            document.getElementById('btn-logout').addEventListener('click', async () => { 
+                await signOut(auth); 
+                window.location.reload();
+            });
+            document.querySelectorAll('#sidebar-nav button[id^="tab-painel-"]').forEach(button => { 
+                button.addEventListener('click', (e) => carregarConteudoPainel(e.currentTarget.id.replace('tab-painel-', ''))); 
+            });
+        });
+    </script>
+
+    <div class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] hidden" id="loading-overlay"><div class="bg-white p-6 rounded-lg shadow-xl flex items-center"><i class="fas fa-spinner fa-spin text-principal text-2xl"></i><span class="ml-4 text-xl font-semibold" id="loading-text">Carregando...</span></div></div>
+    <div class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 hidden" id="modal-mensagem"><div id="modal-conteudo"></div></div>
+    <div class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 z-[60] hidden" id="modal-missoes"><div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-2xl relative animate-fadeIn"><button id="btn-fechar-modal-missoes" class="absolute top-4 right-4 text-gray-400 hover:text-gray-800 text-2xl">&times;</button><div id="conteudo-modal-missoes"></div></div></div>
+    <div class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-[70] hidden" id="modal-perfil">
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-xl w-full max-w-md relative animate-fadeInUp">
+            <button id="btn-fechar-modal-perfil" class="absolute top-4 right-4 text-gray-400 hover:text-gray-800 text-2xl">&times;</button>
+            <h2 class="text-2xl font-bold text-secundaria mb-6 text-center">Perfil</h2>
+            <div id="conteudo-modal-perfil"></div>
+        </div>
+    </div>
+    <div class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-[80] hidden" id="modal-config-rally">
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-xl w-full max-w-3xl relative animate-fadeInUp max-h-[90vh] flex flex-col">
+            <button id="btn-fechar-modal-config" class="absolute top-4 right-4 text-gray-400 hover:text-gray-800 text-2xl">&times;</button>
+            <h2 class="text-3xl font-bold text-secundaria mb-6 text-center">Configurações do Rally</h2>
+            <div id="conteudo-modal-config-rally" class="overflow-y-auto pr-2"></div>
+            <div class="pt-6 mt-auto border-t">
+                 <button onclick="salvarConfiguracoes()" class="w-full bg-principal hover:bg-secundaria text-white font-bold py-4 px-6 rounded-lg text-lg">
+                    <i class="fas fa-save mr-2"></i> Salvar e Aplicar Configurações
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="app-container">
+        <div id="pagina-inicial">
+            <div class="flex flex-col min-h-screen bg-gray-100">
+                <header class="text-center p-6 bg-principal text-white relative shadow-lg">
+                    <img alt="Logo FJU" class="h-16 mx-auto mb-2" src="https://www.universal.org/wp-content/uploads/2021/07/fju-logo.png"/>
+                    <h1 id="titulo-evento-h1" class="text-4xl md:text-5xl font-black uppercase font-montserrat tracking-wider text-glow">RALLY FJU</h1>
+                    <p id="subtitulo-evento-p" class="text-lg md:text-xl font-semibold mt-1">Só os valentes fazem a diferença!</p>
+                    <div class="absolute top-4 right-4"><button class="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-full text-sm transition-all" id="btn-login"><i class="fas fa-user-shield"></i> Assistente</button></div>
+                </header>
+                <main class="flex-grow p-4 md:p-8 flex flex-col items-center">
+                    <div class="w-full max-w-4xl text-center mb-8">
+                        <button id="btn-ver-missao" class="w-full md:w-auto bg-destaque text-white font-bold py-4 px-8 rounded-full text-xl shadow-lg transform hover:scale-105 transition-transform"><i class="fas fa-bullseye mr-2"></i> Ver Missão da Semana</button>
+                    </div>
+                    <h2 class="text-4xl font-bold text-secundaria mb-6">Ranking Atual</h2>
+                    <div id="ranking-container" class="w-full max-w-4xl"></div>
+                </main>
+                <footer class="bg-secundaria text-white text-center p-4 mt-8">
+                    <p>Siga a FJU nas redes sociais!</p>
+                    <div class="flex justify-center gap-6 mt-2 text-2xl">
+                        <a href="https://www.instagram.com/fjuoficial/" target="_blank" class="hover:text-yellow-400 transition-all"><i class="fab fa-instagram"></i></a>
+                        <a href="https://www.facebook.com/ForcaJovemUniversal" target="_blank" class="hover:text-yellow-400 transition-all"><i class="fab fa-facebook"></i></a>
+                    </div>
+                    <p class="text-xs mt-4 opacity-70">&copy; 2025 Rally FJU</p>
+                </footer>
+            </div>
+        </div>
+        <div class="hidden flex items-center justify-center min-h-screen bg-principal" id="login-panel"><div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center animate-fadeIn"><h2 class="text-3xl font-bold text-principal mb-2">Painel do Assistente</h2><p class="text-gray-600 mb-6">Acesso restrito.</p><form id="form-login"><input class="w-full p-3 rounded-lg border text-center text-lg mb-4" id="email-admin" type="email" value="assistente@rally.com" autocomplete="username"/><input class="w-full p-3 rounded-lg border text-center text-lg mb-4" id="senha-admin" type="password" value="rally300" autocomplete="current-password"/><button class="w-full bg-principal hover:bg-secundaria text-white py-3 rounded-full font-bold" type="submit">Entrar</button></form></div></div>
+        
+        <div class="hidden flex flex-col min-h-screen lg:flex-row" id="painel-assistente">
+            <aside class="bg-principal text-white w-full lg:w-72 p-6 flex-shrink-0">
+                <h2 class="text-2xl font-bold font-montserrat mb-8">ADMINISTRAÇÃO</h2>
+                <nav class="flex flex-col space-y-2" id="sidebar-nav">
+                    <button class="text-left py-3 px-4 rounded-lg hover:bg-secundaria flex items-center gap-3" id="tab-painel-visaoGeral"><i class="fas fa-chart-pie w-5"></i> Visão Geral</button>
+                    <button class="text-left py-3 px-4 rounded-lg hover:bg-secundaria flex items-center gap-3" id="tab-painel-pontuacaoSemanal"><i class="fas fa-star-half-alt w-5"></i> Lançar Pontos</button>
+                    <button class="text-left py-3 px-4 rounded-lg hover:bg-secundaria flex items-center gap-3" id="tab-painel-relatorioGeral"><i class="fas fa-file-alt w-5"></i> Relatório Geral</button>
+                    <button class="text-left py-3 px-4 rounded-lg hover:bg-secundaria flex items-center gap-3" id="tab-painel-gerenciarObreiros"><i class="fas fa-users-cog w-5"></i> Gerenciar Obreiros</button>
+                    <button class="text-left py-3 px-4 rounded-lg hover:bg-secundaria flex items-center gap-3" id="tab-painel-gerenciarJovens"><i class="fas fa-child-reaching w-5"></i> Gerenciar Jovens</button>
+                    <button class="text-left py-3 px-4 rounded-lg hover:bg-secundaria flex items-center gap-3" id="tab-painel-gerenciarSemanas"><i class="fas fa-calendar-alt w-5"></i> Gerenciar Semanas</button>
+                    <button class="text-left py-3 px-4 rounded-lg hover:bg-secundaria flex items-center gap-3" id="tab-painel-configuracoes"><i class="fas fa-cogs w-5"></i> Configurações</button>
+                    <div class="pt-4 mt-4 border-t border-white/20">
+                        <button class="w-full text-left py-3 px-4 rounded-lg bg-destaque hover:bg-red-700 flex items-center gap-3" id="btn-logout"><i class="fas fa-sign-out-alt w-5"></i> Sair</button>
+                    </div>
+                </nav>
+            </aside>
+            <main class="flex-grow p-4 lg:p-8 bg-gray-200">
+                <div class="bg-white p-6 rounded-xl shadow-lg min-h-full" id="conteudo-painel">
+                    <div class="hidden animate-fadeIn" id="conteudo-visaoGeral"></div>
+                    <div class="hidden animate-fadeIn" id="conteudo-pontuacaoSemanal"></div>
+                    <div class="hidden animate-fadeIn" id="conteudo-relatorioGeral"></div>
+                    <div class="hidden animate-fadeIn" id="conteudo-gerenciarObreiros"></div>
+                    <div class="hidden animate-fadeIn" id="conteudo-gerenciarJovens"></div>
+                    <div class="hidden animate-fadeIn" id="conteudo-gerenciarSemanas"></div>
+                    <div class="hidden animate-fadeIn" id="conteudo-configuracoes"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => console.log('Service Worker registrado com sucesso:', registration))
+                    .catch(error => console.log('Falha ao registrar Service Worker:', error));
+            });
+        }
+
+        let deferredPrompt;
+        const installButton = document.createElement('button');
+        installButton.id = 'pwa-install-button';
+        installButton.innerText = "📲 Instalar App";
+        installButton.className = "fixed bottom-6 right-6 bg-principal hover:bg-secundaria text-white px-4 py-3 rounded-full shadow-lg font-semibold z-50 transition-transform transform translate-y-20";
+        document.body.appendChild(installButton);
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installButton.style.transform = 'translateY(0)';
+        });
+
+        installButton.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    console.log("PWA instalado com sucesso!");
+                }
+                deferredPrompt = null;
+                installButton.style.transform = 'translateY(200%)';
+            }
+        });
+
+        window.addEventListener('appinstalled', () => {
+            deferredPrompt = null;
+            installButton.style.transform = 'translateY(200%)';
+            console.log("App PWA instalado!");
+        });
+    </script>
+</body>
+</html>
