@@ -24,18 +24,17 @@ jobs:
 
     # Passo 3: Instalar o Cordova e outras dependências do projeto
     - name: Instalar dependências e Cordova
+      working-directory: ./meu-app-ios
       run: |
         npm install
         npm install -g cordova
-      # AVISO: Estamos dizendo para o robô trabalhar dentro da pasta correta!
-      working-directory: ./meu-app-ios
 
     # Passo 4: Adicionar a "base" do iOS ao projeto
     - name: Adicionar plataforma iOS
-      run: cordova platform add ios
       working-directory: ./meu-app-ios
+      run: cordova platform add ios
 
     # Passo 5: Construir o aplicativo (esta parte vai falhar de propósito por enquanto)
     - name: Construir o App iOS
-      run: cordova build ios --device --release
       working-directory: ./meu-app-ios
+      run: cordova build ios --device --release
