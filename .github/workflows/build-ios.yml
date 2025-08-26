@@ -1,40 +1,58 @@
-# Nome do nosso robô construtor
-name: Build Cordova iOS App
+name: Construir App Cordova para iOS
 
-# Define quando o robô deve trabalhar (quando enviamos código novo)
 on:
   push:
-    branches: [ "principal" ] # "principal" é o nome do seu branch em português
+    branches: [ "main", "principal" ] # Tenta rodar no branch 'main' ou 'principal'
 
 jobs:
   build:
-    # Diz ao robô para usar um Mac novinho em folha
     runs-on: macos-latest
 
     steps:
-    # Passo 1: Copiar o código do seu repositório para o Mac virtual
+    # Passo 1: Copia seu código para o Mac virtual
     - name: Checkout do código
       uses: actions/checkout@v4
 
-    # Passo 2: Instalar as ferramentas necessárias (Node.js)
+    # Passo 2: Instala a ferramenta Node.js
     - name: Instalar Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
 
-    # Passo 3: Instalar o Cordova e outras dependências do projeto
+    # Passo 3: Instala as dependências do seu projeto
     - name: Instalar dependências e Cordova
-      working-directory: ./meu-app-ios
+      working-directory: ./meu-app-ios # Entra na pasta do projeto Cordova
       run: |
         npm install
         npm install -g cordova
 
-    # Passo 4: Adicionar a "base" do iOS ao projeto
+    # Passo 4: Adiciona a plataforma iOS
     - name: Adicionar plataforma iOS
       working-directory: ./meu-app-ios
       run: cordova platform add ios
 
-    # Passo 5: Construir o aplicativo (esta parte vai falhar de propósito por enquanto)
+    # Passo 5: Instala os segredos da Apple (Certificado e Perfil)
+    - name: Instalar Segredos da Apple
+      run: |
+        echo -n "${{ secrets.IOS_CERTIFICATE }}" | base64 --decode -o certificate.p12
+        security create-keychain -p "keychain_password" build.keychain
+        security default-keychain -s build.keychain
+        security unlock-keychain -p "keychain_password" build.keychain
+        security import certificate.p12 -k build.keychain -P "${{ secrets.IOS_CERTIFICATE_PASSWORD }}" -A
+        security set-key-partition-list -S apple-tool:,apple: -s -k "keychain_password" build.keychain
+        PROFILE_PATH=~/Library/MobileDevice/Provisioning\ Profiles
+        mkdir -p "$PROFILE_PATH"
+        echo -n "${{ secrets.IOS_PROVISIONING_PROFILE }}" | base64 --decode -o "$PROFILE_PATH/app.mobileprovision"
+      # Este passo só vai funcionar depois que criarmos os secrets no GitHub
+
+    # Passo 6: Constrói o aplicativo assinado
     - name: Construir o App iOS
       working-directory: ./meu-app-ios
-      run: cordova build ios --device --release
+      run: cordova build ios --device --release -- --developmentTeam="${{ secrets.APPLE_DEVELOPER_TEAM_ID }}" --codeSignIdentity="Apple Distribution" --provisioningProfile=$(security find-identity -v -p codesigning | grep -o '"[^"]*"' | head -n 1 | tr -d '"')
+
+    # Passo 7: Faz o upload do arquivo .ipa gerado
+    - name: Upload do Artefato (.ipa)
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-ios-ipa
+        path: meu-app-ios/platforms/ios/build/device/*.ipa
