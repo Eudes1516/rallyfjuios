@@ -1,0 +1,41 @@
+# Nome do nosso robô construtor
+name: Build Cordova iOS App
+
+# Define quando o robô deve trabalhar (quando enviamos código novo)
+on:
+  push:
+    branches: [ "principal" ] # "principal" é o nome do seu branch em português
+
+jobs:
+  build:
+    # Diz ao robô para usar um Mac novinho em folha
+    runs-on: macos-latest
+
+    steps:
+    # Passo 1: Copiar o código do seu repositório para o Mac virtual
+    - name: Checkout do código
+      uses: actions/checkout@v4
+
+    # Passo 2: Instalar as ferramentas necessárias (Node.js)
+    - name: Instalar Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    # Passo 3: Instalar o Cordova e outras dependências do projeto
+    - name: Instalar dependências e Cordova
+      run: |
+        npm install
+        npm install -g cordova
+      # AVISO: Estamos dizendo para o robô trabalhar dentro da pasta correta!
+      working-directory: ./meu-app-ios
+
+    # Passo 4: Adicionar a "base" do iOS ao projeto
+    - name: Adicionar plataforma iOS
+      run: cordova platform add ios
+      working-directory: ./meu-app-ios
+
+    # Passo 5: Construir o aplicativo (esta parte vai falhar de propósito por enquanto)
+    - name: Construir o App iOS
+      run: cordova build ios --device --release
+      working-directory: ./meu-app-ios
